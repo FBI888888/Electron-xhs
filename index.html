@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小红书采集管理系统</title>
+    <title>蒲公英达人采集管理系统 V1.0.0</title>
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.263.1/font/lucide.min.css">
 </head>
@@ -12,7 +12,8 @@
         <!-- 侧边导航栏 -->
         <nav class="sidebar">
             <div class="sidebar-header">
-                <h2>采集系统</h2>
+                <h2>蒲公英采集</h2>
+                <span style="font-size: 11px; color: #888; margin-top: 2px;">V1.0.0</span>
             </div>
             <ul class="nav-list">
                 <li class="nav-item active" data-page="account">
@@ -48,6 +49,13 @@
                 </li>
             </ul>
             <div class="nav-bottom">
+                <li class="nav-item" data-page="license">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>授权信息</span>
+                </li>
                 <li class="nav-item" data-page="about">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -382,22 +390,98 @@
 
                     <!-- 达人列表表格 -->
                     <div class="table-container" style="flex: 1; overflow: auto;">
-                        <table class="table">
+                        <table class="table" style="min-width: 1800px; width: max-content; text-align: center;">
                             <thead>
                                 <tr>
-                                    <th style="width: 50px;">序号</th>
-                                    <th style="width: 280px;">蒲公英主页</th>
-                                    <th style="width: 120px;">达人昵称</th>
-                                    <th style="width: 100px;">归属地</th>
-                                    <th style="width: 180px;">个人标签</th>
-                                    <th style="width: 60px;">性别</th>
-                                    <th style="width: 100px;">粉丝数</th>
+                                    <th style="min-width: 50px;">序号</th>
+                                    <th style="min-width: 180px; max-width: 200px;">蒲公英主页</th>
+                                    <th style="min-width: 120px;">达人昵称</th>
+                                    <th style="min-width: 80px;">归属地</th>
+                                    <th style="min-width: 180px;">个人标签</th>
+                                    <th style="min-width: 180px;">内容标签</th>
+                                    <th style="min-width: 60px;">性别</th>
+                                    <th style="min-width: 100px;">粉丝数</th>
+                                    <th style="min-width: 100px;">粉丝数-万</th>
+                                    <th style="min-width: 130px;">阅读中位数(合作)</th>
+                                    <th style="min-width: 130px;">互动中位数(合作)</th>
+                                    <th style="min-width: 130px;">外溢进店中位数</th>
+                                    <th style="min-width: 100px;">图文报价</th>
+                                    <th style="min-width: 100px;">视频报价</th>
                                 </tr>
                             </thead>
                             <tbody id="blogger-list-tbody">
                                 <!-- 数据由JS动态填充 -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 授权信息页面 -->
+            <div class="page" id="page-license">
+                <div class="page-header">
+                    <h1>授权信息</h1>
+                </div>
+                <div class="page-body page-scroll">
+                    <div class="card" style="max-width: 600px;">
+                        <div class="card-header">软件授权详情</div>
+                        <div class="card-body">
+                            <div class="license-info-grid">
+                                <div class="license-info-item">
+                                    <span class="license-label">机器码</span>
+                                    <div class="license-value-wrap">
+                                        <code class="license-machine-code" id="license-machine-code">获取中...</code>
+                                        <button class="btn btn-sm" id="copy-machine-code-btn" title="复制机器码">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="license-info-item">
+                                    <span class="license-label">授权码</span>
+                                    <div class="license-value-wrap">
+                                        <code class="license-machine-code" id="license-key">未激活</code>
+                                        <button class="btn btn-sm" id="copy-license-key-btn" title="复制授权码">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="license-info-item">
+                                    <span class="license-label">会员身份</span>
+                                    <span class="license-value license-level" id="license-level">-</span>
+                                </div>
+                                <div class="license-info-item">
+                                    <span class="license-label">到期时间</span>
+                                    <span class="license-value" id="license-expire">-</span>
+                                </div>
+                                <div class="license-info-item">
+                                    <span class="license-label">剩余天数</span>
+                                    <span class="license-value" id="license-days">-</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 授权操作按钮 -->
+                            <div class="license-actions" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color); display: flex; gap: 12px;">
+                                <button class="btn btn-secondary" id="change-license-btn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                                    </svg>
+                                    更换授权码
+                                </button>
+                                <button class="btn btn-danger" id="unbind-license-btn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                                        <line x1="12" y1="2" x2="12" y2="12"></line>
+                                    </svg>
+                                    解绑授权码
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

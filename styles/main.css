@@ -681,3 +681,80 @@ body {
 .empty-state p {
     font-size: 14px;
 }
+
+/* 授权信息页面 */
+.license-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.license-info-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.license-info-item:last-child {
+    border-bottom: none;
+}
+
+.license-label {
+    width: 100px;
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.license-value {
+    flex: 1;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.license-value-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.license-machine-code {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-color);
+    padding: 6px 10px;
+    border-radius: 4px;
+    word-break: break-all;
+    flex: 1;
+}
+
+.license-level {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+
+.license-level.vip {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.license-level.vvip {
+    background: #ddd6fe;
+    color: #7c3aed;
+}
+
+.license-level.svip {
+    background: #fce7f3;
+    color: #db2777;
+}
+
+#copy-machine-code-btn {
+    padding: 4px 8px;
+    background: var(--hover-bg);
+    border: 1px solid var(--border-color);
+}

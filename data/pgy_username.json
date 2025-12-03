@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "remark": "测试",
+    "nickName": "tongming",
+    "status": "正常",
+    "cookies": "acw_tc=0a00077317647824966981487e125c45d750381de840640eef13928a22596d; xsecappid=ratlin; loadts=1764782498016; a1=19ae53be0e14vihd7y2k0bfmyiz4zw07kebpq99zs50000855568; webId=aba8091f8f969b0e03f688b7f1f86914; websectiga=634d3ad75ffb42a2ade2c5e1705a73c845837578aeb31ba0e442d75c648da36a; sec_poison_id=1daa1c94-8736-43fd-ae3c-e34974862ac7; gid=yj0d2qDi8JTKyj0d2qDd8djjdy4h3xfWvJT8DuMDi6v3uU284uE8WA888Y222KY8JDKfiDjJ; customer-sso-sid=68c517579683186642665473airabpzl1sag1quy; x-user-id-pgy.xiaohongshu.com=66063984e300000000000001; customerClientId=796749714703815; solar.beaker.session.id=AT-68c517579683186642583552gvyaf8x3ob7cnna8; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c517579683186642583552gvyaf8x3ob7cnna8; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c517579683186642583552gvyaf8x3ob7cnna8",
+    "last_use_date": "2025-12-03",
+    "today_use_count": 8
+  }
+]

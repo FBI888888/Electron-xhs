@@ -3,7 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 
+// 激活码验证模块
+const license = require('./main/license');
+
 let mainWindow;
+let activationWindow;
 
 // 获取应用根目录（项目目录）
 function getAppRootPath() {
@@ -51,9 +55,89 @@ function createWindow() {
     // mainWindow.webContents.openDevTools();
 }
 
-app.whenReady().then(createWindow);
+// 创建激活窗口
+function createActivationWindow() {
+    Menu.setApplicationMenu(null);
+    
+    activationWindow = new BrowserWindow({
+        width: 520,
+        height: 700,
+        resizable: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        },
+        titleBarStyle: 'default',
+        show: false,
+        autoHideMenuBar: true
+    });
+
+    activationWindow.loadFile('activation.html');
+    
+    activationWindow.once('ready-to-show', () => {
+        activationWindow.show();
+    });
+    
+    activationWindow.on('closed', () => {
+        activationWindow = null;
+        // 如果激活窗口关闭且主窗口未创建，则退出应用
+        if (!mainWindow) {
+            app.quit();
+        }
+    });
+}
+
+// 应用启动流程
+app.whenReady().then(async () => {
+    // 设置激活数据存储路径
+    license.setDataPath(app.getPath('userData'));
+    
+    // 检查激活状态 - 必须连接服务器验证
+    const verifyResult = await license.verify();
+    
+    if (verifyResult.success) {
+        // 已激活，启动心跳检测并显示主窗口
+        license.startHeartbeat((result) => {
+            // 激活过期或被禁用时的处理
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                dialog.showMessageBox(mainWindow, {
+                    type: 'warning',
+                    title: '授权提醒',
+                    message: result.message || '您的授权已失效，请重新激活',
+                    buttons: ['确定']
+                }).then(() => {
+                    license.stopHeartbeat();
+                    mainWindow.close();
+                    createActivationWindow();
+                });
+            }
+        });
+        createWindow();
+    } else if (verifyResult.code === 'NETWORK_ERROR') {
+        // 无法连接鉴权服务器
+        const choice = await dialog.showMessageBox({
+            type: 'error',
+            title: '连接失败',
+            message: '无法连接鉴权服务器',
+            detail: '请检查网络连接或联系管理员确认服务器是否正常运行。',
+            buttons: ['重试', '退出']
+        });
+        
+        if (choice.response === 0) {
+            // 重试
+            app.relaunch();
+            app.exit(0);
+        } else {
+            app.quit();
+        }
+    } else {
+        // 未激活或验证失败，显示激活窗口
+        createActivationWindow();
+    }
+});
 
 app.on('window-all-closed', () => {
+    license.stopHeartbeat();
     if (process.platform !== 'darwin') {
         app.quit();
     }
@@ -269,7 +353,7 @@ ipcMain.handle('open-blogger-browser', async (event, cookies) => {
             partition: partition
         },
         parent: mainWindow,
-        title: '博主广场 - 小红书蒲公英'
+        title: '博主广场 - 蒲公英平台'
     });
     
     // 设置 cookies
@@ -471,7 +555,7 @@ ipcMain.handle('open-direct-login', async () => {
             partition: partition  // 使用独立的内存分区
         },
         parent: mainWindow,
-        title: '小红书蒲公英 - 登录获取Cookies'
+        title: '蒲公英平台 - 登录获取Cookies'
     });
     
     let cookiesCaptured = false;
@@ -632,4 +716,89 @@ ipcMain.handle('open-blogger-detail', async (event, url, cookies) => {
     
     detailWindow.loadURL(url);
     return { success: true };
+});
+
+// ==================== 激活码验证 API ====================
+
+// 获取机器码
+ipcMain.handle('get-machine-code', () => {
+    return license.generateMachineCode();
+});
+
+// 检查激活状态
+ipcMain.handle('check-license', async () => {
+    const info = license.getLicenseInfo();
+    if (info && info.days_remaining > 0) {
+        return { success: true, data: info };
+    }
+    return { success: false };
+});
+
+// 激活激活码 (force=true 时强制解绑原设备)
+ipcMain.handle('activate-license', async (event, licenseKey, force = false) => {
+    return await license.activate(licenseKey, force);
+});
+
+// 显示确认对话框
+ipcMain.handle('show-confirm-dialog', async (event, options) => {
+    const result = await dialog.showMessageBox({
+        type: 'question',
+        title: options.title || '确认',
+        message: options.message || '',
+        buttons: options.buttons || ['取消', '确定'],
+        defaultId: 1,
+        cancelId: 0
+    });
+    return result.response === 1;
+});
+
+// 解绑授权码
+ipcMain.handle('unbind-license', async () => {
+    return await license.unbindLocal();
+});
+
+// 验证激活状态
+ipcMain.handle('verify-license', async () => {
+    return await license.verify();
+});
+
+// 获取激活信息
+ipcMain.handle('get-license-info', () => {
+    return license.getLicenseInfo();
+});
+
+// 检查是否为SVIP
+ipcMain.handle('is-svip', () => {
+    return license.isSVIP();
+});
+
+// 进入主程序 (从激活窗口)
+ipcMain.handle('enter-main-app', async () => {
+    // 先验证一次
+    const result = await license.verify();
+    if (result.success) {
+        // 启动心跳
+        license.startHeartbeat((expiredResult) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                dialog.showMessageBox(mainWindow, {
+                    type: 'warning',
+                    title: '授权提醒',
+                    message: expiredResult.message || '您的授权已失效',
+                    buttons: ['确定']
+                }).then(() => {
+                    license.stopHeartbeat();
+                    mainWindow.close();
+                    createActivationWindow();
+                });
+            }
+        });
+        
+        // 关闭激活窗口，打开主窗口
+        if (activationWindow && !activationWindow.isDestroyed()) {
+            activationWindow.close();
+        }
+        createWindow();
+        return { success: true };
+    }
+    return { success: false, message: '验证失败' };
 });

@@ -175,9 +175,29 @@ function makeRequest(options, postData = null) {
     });
 }
 
+/**
+ * 随机化 cookies 中的 webId
+ * webId 是一个 32 位的十六进制字符串
+ */
+function randomizeWebId(cookies) {
+    return cookies.replace(/webId=([a-f0-9]+)/i, (match, webId) => {
+        // 生成同位数的随机十六进制字符串
+        const length = webId.length;
+        let randomId = '';
+        for (let i = 0; i < length; i++) {
+            randomId += Math.floor(Math.random() * 16).toString(16);
+        }
+        return `webId=${randomId}`;
+    });
+}
+
 function getRequestOptions(url, cookies, method = 'GET', body = null) {
     const urlObj = new URL(url);
-    const signHeaders = getSignHeaders(url, body, cookies);
+    
+    // 随机化 webId
+    const randomizedCookies = randomizeWebId(cookies);
+    
+    const signHeaders = getSignHeaders(url, body, randomizedCookies);
     
     return {
         hostname: urlObj.hostname,
@@ -190,7 +210,7 @@ function getRequestOptions(url, cookies, method = 'GET', body = null) {
             'referer': 'https://pgy.xiaohongshu.com/solar/pre-trade/home',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
             'Content-Type': 'application/json;charset=UTF-8',
-            'Cookie': cookies,
+            'Cookie': randomizedCookies,
             'Host': urlObj.hostname,
             'Connection': 'keep-alive',
             ...signHeaders

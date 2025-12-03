@@ -12,6 +12,10 @@ let collectItems = [];
 let settings = null;
 let isCollecting = false;
 let appPath = ''; // 应用根目录路径
+let currentMemberLevel = null; // 当前会员等级
+
+// 高级功能权限配置 (VIP无法访问的页面)
+const PREMIUM_PAGES = ['blogger-list']; // 达人列表需要VVIP或SVIP
 
 // ==================== 工具函数 ====================
 
@@ -157,6 +161,12 @@ function initNavigation() {
         item.addEventListener('click', () => {
             const pageName = item.dataset.page;
             
+            // 检查高级功能权限
+            if (PREMIUM_PAGES.includes(pageName) && !hasPremiumAccess()) {
+                showPermissionDenied();
+                return;
+            }
+            
             // 更新导航状态
             navItems.forEach(nav => nav.classList.remove('active'));
             item.classList.add('active');
@@ -168,8 +178,35 @@ function initNavigation() {
                     page.classList.add('active');
                 }
             });
+            
+            // 切换到授权信息页面时刷新数据
+            if (pageName === 'license') {
+                loadLicenseInfo();
+            }
         });
     });
+}
+
+// 检查是否有高级功能访问权限 (VVIP或SVIP)
+function hasPremiumAccess() {
+    return currentMemberLevel === 'VVIP' || currentMemberLevel === 'SVIP';
+}
+
+// 显示权限不足提示
+function showPermissionDenied() {
+    showModal('权限不足', `
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🔒</div>
+            <p style="font-size: 16px; color: #333; margin-bottom: 15px;">
+                此功能为<span style="color: #7c3aed; font-weight: 600;">高级会员</span>和<span style="color: #db2777; font-weight: 600;">超级会员</span>专属功能
+            </p>
+            <p style="font-size: 14px; color: #666;">
+                如需使用请联系管理员提升权限
+            </p>
+        </div>
+    `, [
+        { text: '我知道了', value: true, primary: true }
+    ]);
 }
 
 // ==================== 账号管理页面 ====================
@@ -1101,7 +1138,7 @@ function stopCollect() {
 // ==================== 保存到Excel ====================
 
 function getPerformanceFieldHeaders(fieldPrefix) {
-    return [
+    const headers = [
         `${fieldPrefix}-笔记数`,
         `${fieldPrefix}-内容类目及占比`,
         `${fieldPrefix}-曝光中位数`,
@@ -1119,6 +1156,14 @@ function getPerformanceFieldHeaders(fieldPrefix) {
         `${fieldPrefix}-预估CPM`,
         `${fieldPrefix}-预估阅读单价`,
         `${fieldPrefix}-预估互动单价`,
+    ];
+    
+    // 合作笔记添加外溢进店中位数字段
+    if (fieldPrefix.includes('合作笔记')) {
+        headers.push(`${fieldPrefix}-外溢进店中位数`);
+    }
+    
+    headers.push(
         `${fieldPrefix}-阅读量来源-发现页`,
         `${fieldPrefix}-阅读量来源-搜索页`,
         `${fieldPrefix}-阅读量来源-关注页`,
@@ -1131,11 +1176,13 @@ function getPerformanceFieldHeaders(fieldPrefix) {
         `${fieldPrefix}-曝光量来源-博主个人页`,
         `${fieldPrefix}-曝光量来源-附近页`,
         `${fieldPrefix}-曝光量来源-其他`,
-    ];
+    );
+    
+    return headers;
 }
 
 function getPerformanceFieldValues(data, fieldPrefix) {
-    return [
+    const values = [
         data[`${fieldPrefix}-笔记数`] || '',
         data[`${fieldPrefix}-内容类目及占比`] || '',
         data[`${fieldPrefix}-曝光中位数`] || '',
@@ -1153,6 +1200,14 @@ function getPerformanceFieldValues(data, fieldPrefix) {
         data[`${fieldPrefix}-预估CPM`] || '',
         data[`${fieldPrefix}-预估阅读单价`] || '',
         data[`${fieldPrefix}-预估互动单价`] || '',
+    ];
+    
+    // 合作笔记添加外溢进店中位数字段
+    if (fieldPrefix.includes('合作笔记')) {
+        values.push(data[`${fieldPrefix}-外溢进店中位数`] || '');
+    }
+    
+    values.push(
         data[`${fieldPrefix}-阅读量来源-发现页`] || '',
         data[`${fieldPrefix}-阅读量来源-搜索页`] || '',
         data[`${fieldPrefix}-阅读量来源-关注页`] || '',
@@ -1165,7 +1220,9 @@ function getPerformanceFieldValues(data, fieldPrefix) {
         data[`${fieldPrefix}-曝光量来源-博主个人页`] || '',
         data[`${fieldPrefix}-曝光量来源-附近页`] || '',
         data[`${fieldPrefix}-曝光量来源-其他`] || '',
-    ];
+    );
+    
+    return values;
 }
 
 async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
@@ -1445,20 +1502,39 @@ function renderBloggerTable() {
     tbody.innerHTML = bloggerList.map((blogger, index) => `
         <tr>
             <td>${index + 1}</td>
-            <td>
+            <td style="max-width: 200px;">
                 <a href="#" 
                    onclick="openBloggerDetail('${blogger.userId}'); return false;"
-                   style="color: #007bff; text-decoration: none; word-break: break-all; cursor: pointer;">
+                   style="color: #007bff; text-decoration: none; word-break: break-all; cursor: pointer; display: block; line-height: 1.4;">
                     https://pgy.xiaohongshu.com/solar/pre-trade/blogger-detail/${blogger.userId}
                 </a>
             </td>
             <td>${blogger.name || '-'}</td>
             <td>${blogger.location || '-'}</td>
             <td>${(blogger.personalTags || []).join('、') || '-'}</td>
+            <td>${(blogger.featureTags || []).join('、') || '-'}</td>
             <td>${blogger.gender || '-'}</td>
-            <td>${formatFansNum(blogger.fansNum || 0)}</td>
+            <td>${blogger.fansNum || 0}</td>
+            <td>${formatFansWan(blogger.fansNum || 0)}</td>
+            <td>${blogger.readMidCoop30 || 0}</td>
+            <td>${blogger.interMidCoop30 || 0}</td>
+            <td>${blogger.mcpuvNum30d || 0}</td>
+            <td>${formatPrice(blogger.picturePrice)}</td>
+            <td>${formatPrice(blogger.videoPrice)}</td>
         </tr>
     `).join('');
+}
+
+// 格式化粉丝数为万
+function formatFansWan(num) {
+    if (!num || num === 0) return '0';
+    return (num / 10000).toFixed(2) + '万';
+}
+
+// 格式化报价
+function formatPrice(price) {
+    if (!price || price === 0) return '-';
+    return '¥' + price.toFixed(0);
 }
 
 async function openBloggerBrowser() {
@@ -1593,17 +1669,30 @@ async function exportBloggerExcel() {
         
         // 准备数据
         const data = [
-            ['蒲公英主页', '达人昵称', '归属地', '个人标签', '性别', '粉丝数']
+            ['蒲公英主页', '达人昵称', '归属地', '个人标签', '内容标签', '性别', 
+             '粉丝数', '粉丝数-万', '阅读中位数(合作)', '互动中位数(合作)', 
+             '外溢进店中位数', '图文报价', '视频报价']
         ];
         
         bloggerList.forEach((blogger) => {
+            const fansWan = blogger.fansNum ? (blogger.fansNum / 10000).toFixed(2) : 0;
+            const picPrice = blogger.picturePrice || 0;
+            const vidPrice = blogger.videoPrice || 0;
+            
             data.push([
                 `https://pgy.xiaohongshu.com/solar/pre-trade/blogger-detail/${blogger.userId}`,
                 blogger.name || '',
                 blogger.location || '',
                 (blogger.personalTags || []).join('、'),
+                (blogger.featureTags || []).join('、'),
                 blogger.gender || '',
-                blogger.fansNum || 0
+                blogger.fansNum || 0,
+                fansWan,
+                blogger.readMidCoop30 || 0,
+                blogger.interMidCoop30 || 0,
+                blogger.mcpuvNum30d || 0,
+                picPrice,
+                vidPrice
             ]);
         });
         
@@ -1614,11 +1703,18 @@ async function exportBloggerExcel() {
         // 设置列宽
         worksheet['!cols'] = [
             { wch: 60 },  // 蒲公英主页
-            { wch: 20 },  // 达人昵称
-            { wch: 15 },  // 归属地
-            { wch: 30 },  // 个人标签
+            { wch: 15 },  // 达人昵称
+            { wch: 10 },  // 归属地
+            { wch: 25 },  // 个人标签
+            { wch: 25 },  // 内容标签
             { wch: 8 },   // 性别
-            { wch: 12 }   // 粉丝数
+            { wch: 12 },  // 粉丝数
+            { wch: 12 },  // 粉丝数-万
+            { wch: 15 },  // 阅读中位数(合作)
+            { wch: 15 },  // 互动中位数(合作)
+            { wch: 15 },  // 外溢进店中位数
+            { wch: 12 },  // 图文报价
+            { wch: 12 }   // 视频报价
         ];
         
         XLSX.utils.book_append_sheet(workbook, worksheet, '达人列表');
@@ -1680,6 +1776,162 @@ function showDisclaimerModal() {
     });
 }
 
+// ==================== 授权信息页面 ====================
+
+async function loadLicenseInfo() {
+    try {
+        // 获取机器码
+        const machineCode = await ipcRenderer.invoke('get-machine-code');
+        document.getElementById('license-machine-code').textContent = machineCode;
+        
+        // 获取授权信息
+        const licenseInfo = await ipcRenderer.invoke('get-license-info');
+        
+        if (licenseInfo) {
+            // 更新全局会员等级
+            currentMemberLevel = licenseInfo.member_level;
+            
+            document.getElementById('license-key').textContent = licenseInfo.license_key || '未激活';
+            
+            const levelEl = document.getElementById('license-level');
+            const level = licenseInfo.member_level || '-';
+            levelEl.textContent = getLevelDisplayName(level);
+            levelEl.className = 'license-value license-level ' + level.toLowerCase();
+            
+            document.getElementById('license-expire').textContent = 
+                licenseInfo.expire_at ? new Date(licenseInfo.expire_at).toLocaleString('zh-CN') : '-';
+            document.getElementById('license-days').textContent = 
+                licenseInfo.days_remaining !== undefined ? licenseInfo.days_remaining + ' 天' : '-';
+        } else {
+            currentMemberLevel = null;
+            document.getElementById('license-key').textContent = '未激活';
+            document.getElementById('license-level').textContent = '-';
+            document.getElementById('license-level').className = 'license-value license-level';
+            document.getElementById('license-expire').textContent = '-';
+            document.getElementById('license-days').textContent = '-';
+        }
+    } catch (e) {
+        console.error('加载授权信息失败:', e);
+    }
+}
+
+function getLevelDisplayName(level) {
+    const names = {
+        'VIP': 'VIP (会员)',
+        'VVIP': 'VVIP (高级会员)',
+        'SVIP': 'SVIP (超级会员)'
+    };
+    return names[level] || level;
+}
+
+function initLicensePage() {
+    // 复制机器码按钮
+    document.getElementById('copy-machine-code-btn').addEventListener('click', () => {
+        const machineCode = document.getElementById('license-machine-code').textContent;
+        navigator.clipboard.writeText(machineCode).then(() => {
+            showToast('success', '复制成功', '机器码已复制到剪贴板');
+        }).catch(() => {
+            showToast('error', '复制失败', '无法访问剪贴板');
+        });
+    });
+    
+    // 复制授权码按钮
+    document.getElementById('copy-license-key-btn').addEventListener('click', () => {
+        const licenseKey = document.getElementById('license-key').textContent;
+        if (licenseKey && licenseKey !== '未激活') {
+            navigator.clipboard.writeText(licenseKey).then(() => {
+                showToast('success', '复制成功', '授权码已复制到剪贴板');
+            }).catch(() => {
+                showToast('error', '复制失败', '无法访问剪贴板');
+            });
+        } else {
+            showToast('warning', '提示', '暂无授权码可复制');
+        }
+    });
+    
+    // 解绑授权码按钮
+    document.getElementById('unbind-license-btn').addEventListener('click', async () => {
+        const confirmed = await showConfirm('解绑授权码', '确定要解绑当前授权码吗？\n\n解绑后软件将退出，需要重新输入授权码激活。');
+        if (confirmed) {
+            const result = await ipcRenderer.invoke('unbind-license');
+            if (result.success) {
+                showToast('success', '解绑成功', '正在退出软件...');
+                setTimeout(() => {
+                    ipcRenderer.invoke('quit-app');
+                }, 1500);
+            } else {
+                showToast('error', '解绑失败', result.message);
+            }
+        }
+    });
+    
+    // 更换授权码按钮
+    document.getElementById('change-license-btn').addEventListener('click', async () => {
+        const result = await showModal('更换授权码', `
+            <div class="form-group">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500;">请输入新的授权码</label>
+                <input type="text" id="new-license-key" class="input" placeholder="XXXX-XXXX-XXXX-XXXX" style="width: 100%; text-transform: uppercase;">
+            </div>
+            <p style="font-size: 12px; color: #999; margin-top: 10px;">
+                更换后原授权码将被解绑，新授权码将绑定到当前设备。
+            </p>
+        `, [
+            { text: '取消', value: false },
+            { text: '确定更换', value: true, primary: true }
+        ], () => {
+            return document.getElementById('new-license-key').value.trim();
+        });
+        
+        if (result && result.confirmed && result.data) {
+            const newKey = result.data.toUpperCase();
+            if (!newKey) {
+                showToast('warning', '提示', '请输入授权码');
+                return;
+            }
+            
+            // 先清除本地数据
+            await ipcRenderer.invoke('unbind-license');
+            
+            // 激活新授权码
+            const activateResult = await ipcRenderer.invoke('activate-license', newKey, true);
+            if (activateResult.success) {
+                showToast('success', '更换成功', '授权码已更换');
+                loadLicenseInfo();
+            } else if (activateResult.code === 'ALREADY_ACTIVATED') {
+                // 询问是否解绑原设备
+                const forceConfirmed = await showConfirm('授权码已被使用', '该授权码已绑定到其他设备。\n\n确定要解绑原设备并绑定到当前设备吗？');
+                if (forceConfirmed) {
+                    const forceResult = await ipcRenderer.invoke('activate-license', newKey, true);
+                    if (forceResult.success) {
+                        showToast('success', '更换成功', '授权码已更换');
+                        loadLicenseInfo();
+                    } else {
+                        showToast('error', '更换失败', forceResult.message);
+                    }
+                }
+            } else {
+                showToast('error', '更换失败', activateResult.message);
+            }
+        }
+    });
+    
+    // 初始加载授权信息和会员等级
+    loadLicenseInfo();
+}
+
+// 初始化会员等级 (启动时调用)
+async function initMemberLevel() {
+    try {
+        const licenseInfo = await ipcRenderer.invoke('get-license-info');
+        if (licenseInfo) {
+            currentMemberLevel = licenseInfo.member_level;
+            console.log('当前会员等级:', currentMemberLevel);
+        }
+    } catch (e) {
+        console.error('获取会员等级失败:', e);
+    }
+}
+
 // ==================== 初始化 ====================
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1696,9 +1948,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('应用路径:', appPath);
     console.log('数据目录:', path.join(appPath, DATA_DIR));
     
+    // 先初始化会员等级 (用于权限控制)
+    await initMemberLevel();
+    
     initNavigation();
     initAccountPage();
     initSettingsPage();
     initCollectPage();
     initBloggerListPage();
+    initLicensePage();
 });

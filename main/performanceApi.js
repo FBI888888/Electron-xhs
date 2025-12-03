@@ -150,6 +150,11 @@ async function fetchCoreData(userId, params, cookies) {
                     [`${prefix}预估互动单价`]: sumData.cpe != null ? sumData.cpe.toFixed(2) : '',
                 };
                 
+                // 合作笔记添加外溢进店中位数字段
+                if (params.business === '1') {
+                    extractedData[`${prefix}外溢进店中位数`] = sumData.thirdUserNum || '';
+                }
+                
                 return { success: true, data: extractedData };
             } else {
                 return { success: false, message: `接口返回错误: ${result.msg || '未知错误'}` };
