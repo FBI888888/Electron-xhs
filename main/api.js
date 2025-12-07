@@ -305,6 +305,7 @@ async function getBloggerInfo(userId, cookies) {
                             noteSign: noteSignName,
                             contentTags: contentTagsStr,
                             tradeType: rawData.tradeType || '',
+                            currentLevel: rawData.currentLevel !== undefined ? rawData.currentLevel : '',
                         }
                     };
                 } else {

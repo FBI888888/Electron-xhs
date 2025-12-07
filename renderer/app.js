@@ -703,7 +703,7 @@ function renderCollectTable() {
     if (collectItems.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #999;">
+                <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
                     暂无采集数据，请导入采集目标
                 </td>
             </tr>
@@ -717,6 +717,7 @@ function renderCollectTable() {
             <td title="${item.xhs_url}">${item.xhs_url}</td>
             <td>${item.user_id}</td>
             <td>${item.nickname || ''}</td>
+            <td>${item.healthLevel !== undefined ? item.healthLevel : '-'}</td>
             <td>
                 <span class="status-tag ${getStatusClass(item.status)}">
                     ${item.status}
@@ -1026,6 +1027,7 @@ async function startCollect() {
             
             if (result.success && result.data) {
                 item.nickname = result.data.name || '';
+                item.healthLevel = result.data.currentLevel !== undefined ? result.data.currentLevel : '-';
                 item.status = '已完成';
                 item.collect_time = new Date().toLocaleString('zh-CN');
                 item.collected_data = result.data;
@@ -1250,7 +1252,7 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
         // 基础表头
         const baseHeaders = [
             '博主主页', '达人 ID', '蒲公英主页', '小红书主页',
-            '昵称', '性别', '小红书号', '地理位置',
+            '昵称', '健康等级', '性别', '小红书号', '地理位置',
             '粉丝数量', '获赞与收藏', '合作报价-图文笔记',
             '合作报价-视频笔记', '合作报价-最低报价',
             '签约机构', '内容标签', '合作行业',
@@ -1300,6 +1302,7 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
                     item.pgy_url,
                     item.xhs_url,
                     d.name || '',
+                    d.currentLevel !== undefined ? d.currentLevel : '',
                     d.gender || '',
                     d.redId || '',
                     d.location || '',
@@ -1509,6 +1512,13 @@ function renderBloggerTable() {
                     https://pgy.xiaohongshu.com/solar/pre-trade/blogger-detail/${blogger.userId}
                 </a>
             </td>
+            <td style="max-width: 200px;">
+                <a href="https://www.xiaohongshu.com/user/profile/${blogger.userId}" 
+                   target="_blank"
+                   style="color: #007bff; text-decoration: none; word-break: break-all; display: block; line-height: 1.4;">
+                    https://www.xiaohongshu.com/user/profile/${blogger.userId}
+                </a>
+            </td>
             <td>${blogger.name || '-'}</td>
             <td>${blogger.location || '-'}</td>
             <td>${(blogger.personalTags || []).join('、') || '-'}</td>
@@ -1602,12 +1612,6 @@ async function startFetchBloggers() {
             // 每页都实时渲染表格
             renderBloggerTable();
             
-            // 如果返回数据少于一页，说明已经是最后一页
-            if (newBloggers.length < pageSize) {
-                showToast('success', '完成', `已获取全部数据，共 ${bloggerList.length} 条`);
-                break;
-            }
-            
             // 达到用户设定的最大页数
             if (currentPage >= maxPages) {
                 showToast('success', '完成', `已达到设定页数 ${maxPages} 页，共 ${bloggerList.length} 条`);
@@ -1669,7 +1673,7 @@ async function exportBloggerExcel() {
         
         // 准备数据
         const data = [
-            ['蒲公英主页', '达人昵称', '归属地', '个人标签', '内容标签', '性别', 
+            ['蒲公英主页', '小红书主页', '达人昵称', '归属地', '个人标签', '内容标签', '性别', 
              '粉丝数', '粉丝数-万', '阅读中位数(合作)', '互动中位数(合作)', 
              '外溢进店中位数', '图文报价', '视频报价']
         ];
@@ -1681,6 +1685,7 @@ async function exportBloggerExcel() {
             
             data.push([
                 `https://pgy.xiaohongshu.com/solar/pre-trade/blogger-detail/${blogger.userId}`,
+                `https://www.xiaohongshu.com/user/profile/${blogger.userId}`,
                 blogger.name || '',
                 blogger.location || '',
                 (blogger.personalTags || []).join('、'),
@@ -1703,6 +1708,7 @@ async function exportBloggerExcel() {
         // 设置列宽
         worksheet['!cols'] = [
             { wch: 60 },  // 蒲公英主页
+            { wch: 50 },  // 小红书主页
             { wch: 15 },  // 达人昵称
             { wch: 10 },  // 归属地
             { wch: 25 },  // 个人标签
