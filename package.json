@@ -33,15 +33,7 @@
       "renderer/**/*",
       "main/**/*",
       "styles/**/*",
-      "data/**/*",
       "node_modules/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "data",
-        "to": "data",
-        "filter": ["**/*"]
-      }
     ],
     "win": {
       "target": [

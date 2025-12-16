@@ -1,4 +1,5 @@
 const { ipcRenderer } = require('electron');
+ const fs = require('fs');
 const path = require('path');
 
 // 数据存储路径
@@ -532,7 +533,9 @@ function getDefaultSettings() {
             '合作笔记-图文-近90天-全流量',
             '合作笔记-视频-近90天-全流量'
         ],
-        max_count: 9999
+        max_count: 9999,
+        concurrency: 2,
+        throttle_ms: 200
     };
 }
 
@@ -556,6 +559,12 @@ async function loadSettings() {
         }
         if (settings.max_count !== undefined) {
             defaultSettings.max_count = settings.max_count;
+        }
+        if (settings.concurrency !== undefined) {
+            defaultSettings.concurrency = settings.concurrency;
+        }
+        if (settings.throttle_ms !== undefined) {
+            defaultSettings.throttle_ms = settings.throttle_ms;
         }
     }
     
@@ -593,7 +602,9 @@ async function saveSettings(showNotification = false) {
             path: savePath
         },
         performance_fields: selectedFields,
-        max_count: maxCount
+        max_count: maxCount,
+        concurrency: settings?.concurrency ?? 2,
+        throttle_ms: settings?.throttle_ms ?? 1000
     };
     
     await saveJsonData(SETTINGS_FILE, settings);
@@ -848,6 +859,35 @@ let isPaused = false;
 let currentAccountIndex = 0;
 let currentAccounts = [];
 
+function createMutex() {
+    let locked = false;
+    const waiters = [];
+
+    return {
+        async lock() {
+            if (!locked) {
+                locked = true;
+                return;
+            }
+            await new Promise(resolve => waiters.push(resolve));
+            locked = true;
+        },
+        unlock() {
+            locked = false;
+            const next = waiters.shift();
+            if (next) next();
+        },
+        async runExclusive(fn) {
+            await this.lock();
+            try {
+                return await fn();
+            } finally {
+                this.unlock();
+            }
+        }
+    };
+}
+
 function updateCollectButtons(collecting) {
     isCollecting = collecting;
     document.getElementById('start-collect-btn').disabled = collecting;
@@ -857,6 +897,12 @@ function updateCollectButtons(collecting) {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitWhilePaused() {
+    while (isPaused && isCollecting) {
+        await sleep(100);
+    }
 }
 
 function getTodayDate() {
@@ -891,17 +937,27 @@ function getNextAvailableAccount(maxCount) {
 }
 
 async function collectSingleItem(index, item, selectedFields, maxCount) {
-    // 获取可用账号
-    const { index: accountIndex, account } = getNextAvailableAccount(maxCount);
-    if (account === null) {
+    const accountMutex = collectSingleItem.accountMutex || (collectSingleItem.accountMutex = createMutex());
+ 
+    // 获取可用账号 + 更新账号使用次数（并发下需要互斥）
+    const { accountIndex, cookies } = await accountMutex.runExclusive(async () => {
+        const { index: idx, account } = getNextAvailableAccount(maxCount);
+        if (account === null) {
+            return { accountIndex: null, cookies: null };
+        }
+ 
+        account.today_use_count = (account.today_use_count || 0) + 1;
+        console.log(`账号 ${idx + 1} 今日已使用 ${account.today_use_count} 次`);
+ 
+        // 分配完账号后立即轮转，避免并发下集中使用同一账号
+        currentAccountIndex = (currentAccountIndex + 1) % currentAccounts.length;
+ 
+        return { accountIndex: idx, cookies: account.cookies };
+    });
+ 
+    if (cookies === null) {
         return { success: false, message: '所有账号均已达到今日最大使用次数' };
     }
-    
-    // 更新账号使用次数
-    account.today_use_count = (account.today_use_count || 0) + 1;
-    console.log(`账号 ${accountIndex + 1} 今日已使用 ${account.today_use_count} 次`);
-    
-    const cookies = account.cookies;
     const userId = item.user_id;
     let combinedData = {};
     let finalMessage = '';
@@ -912,59 +968,55 @@ async function collectSingleItem(index, item, selectedFields, maxCount) {
     
     const result1 = await ipcRenderer.invoke('collect-blogger-info', userId, cookies);
     
-    // 采集后切换到下一个账号
-    currentAccountIndex = (currentAccountIndex + 1) % currentAccounts.length;
-    
     if (!result1.success) {
         return { success: false, message: result1.message };
     }
     
     combinedData = { ...result1.data };
     finalMessage = '采集成功';
-    
-    // 2. 采集数据概览
-    collectItems[index].status = '采集中-数据概览';
+
+    collectItems[index].status = '采集中-数据采集';
     renderCollectTable();
-    
-    const result2 = await ipcRenderer.invoke('collect-data-summary', userId, cookies);
+
+    const tasks = [
+        ipcRenderer.invoke('collect-data-summary', userId, cookies),
+        selectedFields.length > 0
+            ? ipcRenderer.invoke('collect-performance-data', userId, selectedFields, cookies)
+            : Promise.resolve({ success: true, data: null, message: '' }),
+        ipcRenderer.invoke('collect-fans-summary', userId, cookies),
+        ipcRenderer.invoke('collect-fans-profile', userId, cookies),
+    ];
+
+    const [r2, r3, r4, r5] = await Promise.allSettled(tasks);
+
+    const result2 = r2.status === 'fulfilled' ? r2.value : { success: false, message: r2.reason?.message || String(r2.reason) };
+    const result3 = r3.status === 'fulfilled' ? r3.value : { success: false, message: r3.reason?.message || String(r3.reason) };
+    const result4 = r4.status === 'fulfilled' ? r4.value : { success: false, message: r4.reason?.message || String(r4.reason) };
+    const result5 = r5.status === 'fulfilled' ? r5.value : { success: false, message: r5.reason?.message || String(r5.reason) };
+
     if (result2.success && result2.data) {
         combinedData = { ...combinedData, ...result2.data };
-    } else {
+    } else if (!result2.success) {
         finalMessage += `（数据概览失败: ${result2.message}）`;
     }
-    
-    // 3. 采集数据表现（仅当选择了字段时）
+
     if (selectedFields.length > 0) {
-        collectItems[index].status = '采集中-数据表现';
-        renderCollectTable();
-        
-        const result3 = await ipcRenderer.invoke('collect-performance-data', userId, selectedFields, cookies);
         if (result3.success && result3.data) {
             combinedData = { ...combinedData, ...result3.data };
-        } else {
+        } else if (!result3.success) {
             finalMessage += `（数据表现失败: ${result3.message}）`;
         }
     }
-    
-    // 4. 采集粉丝指标
-    collectItems[index].status = '采集中-粉丝指标';
-    renderCollectTable();
-    
-    const result4 = await ipcRenderer.invoke('collect-fans-summary', userId, cookies);
+
     if (result4.success && result4.data) {
         combinedData = { ...combinedData, ...result4.data };
-    } else {
+    } else if (!result4.success) {
         finalMessage += `（粉丝指标失败: ${result4.message}）`;
     }
-    
-    // 5. 采集粉丝画像
-    collectItems[index].status = '采集中-粉丝画像';
-    renderCollectTable();
-    
-    const result5 = await ipcRenderer.invoke('collect-fans-profile', userId, cookies);
+
     if (result5.success && result5.data) {
         combinedData = { ...combinedData, ...result5.data };
-    } else {
+    } else if (!result5.success) {
         finalMessage += `（粉丝画像失败: ${result5.message}）`;
     }
     
@@ -987,9 +1039,13 @@ async function startCollect() {
     const loadedSettings = await loadJsonData(SETTINGS_FILE, null);
     const maxCount = loadedSettings?.max_count || 9999;
     const selectedFields = loadedSettings?.performance_fields || [];
+    const concurrency = Math.max(1, Math.min(10, Number(loadedSettings?.concurrency ?? 2) || 2));
+    const throttleMs = Math.max(0, Number(loadedSettings?.throttle_ms ?? 1000) || 1000);
     
     console.log(`账号最大使用次数: ${maxCount}`);
     console.log(`选择的数据表现字段数量: ${selectedFields.length}`);
+    console.log(`采集并发(concurrency): ${concurrency}`);
+    console.log(`采集节流(throttle_ms): ${throttleMs}`);
     
     // 获取有效账号
     const validAccounts = accounts.filter(acc => acc.status === '正常');
@@ -1006,48 +1062,70 @@ async function startCollect() {
     updateCollectButtons(true);
     showToast('info', '开始采集', `开始采集 ${collectItems.length} 个目标（已选择 ${selectedFields.length} 种数据表现字段）`);
     
-    // 执行采集
+    // 执行采集（双并发 worker）
+    const pendingIndexes = [];
     for (let i = 0; i < collectItems.length; i++) {
-        if (!isCollecting) break;
-        
-        // 检查是否暂停
-        while (isPaused && isCollecting) {
-            await sleep(100);
-        }
-        
-        if (!isCollecting) break;
-        
-        const item = collectItems[i];
-        
-        // 跳过已完成的项目
-        if (item.status === '已完成') continue;
-        
-        try {
-            const result = await collectSingleItem(i, item, selectedFields, maxCount);
-            
-            if (result.success && result.data) {
-                item.nickname = result.data.name || '';
-                item.healthLevel = result.data.currentLevel !== undefined ? result.data.currentLevel : '-';
-                item.status = '已完成';
-                item.collect_time = new Date().toLocaleString('zh-CN');
-                item.collected_data = result.data;
-            } else {
-                item.status = `失败: ${result.message}`;
-                item.collect_time = new Date().toLocaleString('zh-CN');
-            }
-            
-            renderCollectTable();
-            
-            // 等待间隔时间（除了最后一个）
-            if (i < collectItems.length - 1 && isCollecting) {
-                await sleep(1000);
-            }
-        } catch (err) {
-            item.status = `失败: ${err.message}`;
-            item.collect_time = new Date().toLocaleString('zh-CN');
-            renderCollectTable();
+        if (collectItems[i].status !== '已完成') {
+            pendingIndexes.push(i);
         }
     }
+ 
+    const queueMutex = createMutex();
+    let queuePos = 0;
+ 
+    async function getNextIndex() {
+        return queueMutex.runExclusive(async () => {
+            if (queuePos >= pendingIndexes.length) return null;
+            const idx = pendingIndexes[queuePos];
+            queuePos++;
+            return idx;
+        });
+    }
+ 
+    async function workerLoop(workerId) {
+        while (isCollecting) {
+            await waitWhilePaused();
+            if (!isCollecting) break;
+ 
+            const i = await getNextIndex();
+            if (i === null) break;
+ 
+            const item = collectItems[i];
+            if (!item || item.status === '已完成') {
+                continue;
+            }
+ 
+            try {
+                const result = await collectSingleItem(i, item, selectedFields, maxCount);
+ 
+                if (result.success && result.data) {
+                    item.nickname = result.data.name || '';
+                    item.healthLevel = result.data.currentLevel !== undefined ? result.data.currentLevel : '-';
+                    item.status = '已完成';
+                    item.collect_time = new Date().toLocaleString('zh-CN');
+                    item.collected_data = result.data;
+                } else {
+                    item.status = `失败: ${result.message}`;
+                    item.collect_time = new Date().toLocaleString('zh-CN');
+                }
+ 
+                renderCollectTable();
+ 
+                // 每个 worker 内部保持间隔，避免请求过于密集
+                if (isCollecting && throttleMs > 0) {
+                    await sleep(throttleMs);
+                }
+            } catch (err) {
+                item.status = `失败: ${err.message}`;
+                item.collect_time = new Date().toLocaleString('zh-CN');
+                renderCollectTable();
+            }
+        }
+    }
+ 
+    await Promise.all(
+        Array.from({ length: concurrency }, (_, i) => workerLoop(i + 1))
+    );
     
     // 采集完成
     if (isCollecting) {
@@ -1238,11 +1316,24 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
             savePath = await ipcRenderer.invoke('get-documents-path');
         }
         
-        let filepath = path.join(savePath, filename);
+        const normalizedPath = typeof savePath === 'string' ? savePath.trim() : '';
+        let filepath;
+        if (normalizedPath && normalizedPath.toLowerCase().endsWith('.xlsx')) {
+            // 兼容用户把“保存路径”填成完整文件路径的情况
+            filepath = normalizedPath;
+        } else {
+            filepath = path.join(savePath, filename);
+        }
         
         // 确保文件名以.xlsx结尾
         if (!filepath.endsWith('.xlsx')) {
             filepath += '.xlsx';
+        }
+
+        // 确保目录存在
+        const dir = path.dirname(filepath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
         }
         
         console.log(`保存文件: ${filepath}`);

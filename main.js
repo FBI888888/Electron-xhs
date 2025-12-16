@@ -18,6 +18,115 @@ function getAppRootPath() {
     return process.cwd();
 }
 
+function ensureDirExists(dirPath) {
+    try {
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
+function initAppDataPaths() {
+    const root = getAppRootPath();
+    const dataRoot = path.join(root, 'data');
+    ensureDirExists(dataRoot);
+
+    // Electron 默认会把 userData/cache 等放到 C 盘 AppData，这里强制重定向到安装目录
+    const userDataDir = path.join(dataRoot, 'userData');
+    const sessionDataDir = path.join(dataRoot, 'sessionData');
+    const cacheDir = path.join(dataRoot, 'cache');
+    const logsDir = path.join(dataRoot, 'logs');
+    const tempDir = path.join(dataRoot, 'temp');
+
+    [userDataDir, sessionDataDir, cacheDir, logsDir, tempDir].forEach(ensureDirExists);
+
+    app.setPath('userData', userDataDir);
+    app.setPath('sessionData', sessionDataDir);
+    app.setPath('cache', cacheDir);
+    app.setPath('logs', logsDir);
+    app.setPath('temp', tempDir);
+
+    // 让 license/配置等统一落在安装目录 data 下
+    license.setDataPath(userDataDir);
+}
+
+function createMutex() {
+    let locked = false;
+    const waiters = [];
+
+    return {
+        async lock() {
+            if (!locked) {
+                locked = true;
+                return;
+            }
+            await new Promise(resolve => waiters.push(resolve));
+            locked = true;
+        },
+        unlock() {
+            locked = false;
+            const next = waiters.shift();
+            if (next) next();
+        },
+        async runExclusive(fn) {
+            await this.lock();
+            try {
+                return await fn();
+            } finally {
+                this.unlock();
+            }
+        }
+    };
+}
+
+const licenseVerifyMutex = createMutex();
+let lastVerifyOkAt = 0;
+let lastVerifyInfo = null;
+
+async function verifyLicenseOnlineCached(maxAgeMs = 60 * 1000) {
+    const now = Date.now();
+    if (lastVerifyInfo && (now - lastVerifyOkAt) <= maxAgeMs) {
+        return { success: true, data: lastVerifyInfo };
+    }
+
+    return licenseVerifyMutex.runExclusive(async () => {
+        const now2 = Date.now();
+        if (lastVerifyInfo && (now2 - lastVerifyOkAt) <= maxAgeMs) {
+            return { success: true, data: lastVerifyInfo };
+        }
+
+        const result = await license.verify();
+        if (result.success) {
+            lastVerifyOkAt = Date.now();
+            lastVerifyInfo = license.getLicenseInfo();
+            return { success: true, data: lastVerifyInfo };
+        }
+        lastVerifyOkAt = 0;
+        lastVerifyInfo = null;
+        return {
+            success: false,
+            code: result.code || 'LICENSE_REQUIRED',
+            message: result.message || '未激活或授权已失效'
+        };
+    });
+}
+
+function withLicenseGuard(handler) {
+    return async (event, ...args) => {
+        const check = await verifyLicenseOnlineCached();
+        if (!check.success) {
+            return {
+                success: false,
+                code: check.code || 'LICENSE_REQUIRED',
+                message: check.message || '未激活或授权已失效'
+            };
+        }
+        return handler(event, ...args);
+    };
+}
+
 function createWindow() {
     // 移除菜单栏
     Menu.setApplicationMenu(null);
@@ -89,8 +198,8 @@ function createActivationWindow() {
 
 // 应用启动流程
 app.whenReady().then(async () => {
-    // 设置激活数据存储路径
-    license.setDataPath(app.getPath('userData'));
+    // 初始化路径：确保所有缓存/数据都写入安装目录下的 data
+    initAppDataPaths();
     
     // 检查激活状态 - 必须连接服务器验证
     const verifyResult = await license.verify();
@@ -223,32 +332,32 @@ const bloggerApi = require('./main/api');
 const performanceApi = require('./main/performanceApi');
 
 // 采集博主信息
-ipcMain.handle('collect-blogger-info', async (event, userId, cookies) => {
+ipcMain.handle('collect-blogger-info', withLicenseGuard(async (event, userId, cookies) => {
     return await bloggerApi.getBloggerInfo(userId, cookies);
-});
+}));
 
 // 采集数据概览
-ipcMain.handle('collect-data-summary', async (event, userId, cookies) => {
+ipcMain.handle('collect-data-summary', withLicenseGuard(async (event, userId, cookies) => {
     return await bloggerApi.getDataSummary(userId, cookies);
-});
+}));
 
 // 采集数据表现
-ipcMain.handle('collect-performance-data', async (event, userId, selectedFields, cookies) => {
+ipcMain.handle('collect-performance-data', withLicenseGuard(async (event, userId, selectedFields, cookies) => {
     return await performanceApi.getPerformanceData(userId, selectedFields, cookies);
-});
+}));
 
 // 采集粉丝指标
-ipcMain.handle('collect-fans-summary', async (event, userId, cookies) => {
+ipcMain.handle('collect-fans-summary', withLicenseGuard(async (event, userId, cookies) => {
     return await bloggerApi.getFansSummary(userId, cookies);
-});
+}));
 
 // 采集粉丝画像
-ipcMain.handle('collect-fans-profile', async (event, userId, cookies) => {
+ipcMain.handle('collect-fans-profile', withLicenseGuard(async (event, userId, cookies) => {
     return await bloggerApi.getFansProfile(userId, cookies);
-});
+}));
 
 // HTTP 请求处理 - 用于验证账号
-ipcMain.handle('check-account', async (event, cookies) => {
+ipcMain.handle('check-account', withLicenseGuard(async (event, cookies) => {
     return new Promise((resolve) => {
         const options = {
             hostname: 'pgy.xiaohongshu.com',
@@ -323,7 +432,7 @@ ipcMain.handle('check-account', async (event, cookies) => {
 
         req.end();
     });
-});
+}));
 
 // ==================== 达人列表功能 ====================
 
@@ -332,7 +441,7 @@ let capturedRequest = null;
 let bloggerSessionCounter = 0;
 
 // 打开博主广场浏览器窗口
-ipcMain.handle('open-blogger-browser', async (event, cookies) => {
+ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) => {
     if (bloggerWindow && !bloggerWindow.isDestroyed()) {
         bloggerWindow.focus();
         return { success: true, message: '窗口已打开' };
@@ -426,12 +535,7 @@ ipcMain.handle('open-blogger-browser', async (event, cookies) => {
     });
     
     return { success: true, message: '浏览器窗口已打开' };
-});
-
-// 获取捕获的请求
-ipcMain.handle('get-captured-request', () => {
-    return capturedRequest;
-});
+}));
 
 // 使用捕获的请求参数获取达人列表
 ipcMain.handle('fetch-blogger-list', async (event, pageNum, capturedReq) => {
@@ -529,7 +633,7 @@ let loginWindow = null;
 let loginSessionCounter = 0;
 
 // 直接登录 - 打开浏览器并监听Cookies
-ipcMain.handle('open-direct-login', async () => {
+ipcMain.handle('open-direct-login', withLicenseGuard(async () => {
     // 如果已有登录窗口，先关闭
     if (loginWindow && !loginWindow.isDestroyed()) {
         loginWindow.close();
@@ -656,7 +760,7 @@ ipcMain.handle('open-direct-login', async () => {
     loginWindow.loadURL('https://pgy.xiaohongshu.com/');
     
     return { success: true, message: '登录窗口已打开，请在浏览器中登录' };
-});
+}));
 
 // 关闭登录窗口
 ipcMain.handle('close-login-window', () => {
@@ -669,7 +773,7 @@ ipcMain.handle('close-login-window', () => {
 
 // 打开博主详情页
 let detailSessionCounter = 0;
-ipcMain.handle('open-blogger-detail', async (event, url, cookies) => {
+ipcMain.handle('open-blogger-detail', withLicenseGuard(async (event, url, cookies) => {
     // 每次创建全新的内存会话，不保存缓存
     detailSessionCounter++;
     const partition = `memory-detail-${Date.now()}-${detailSessionCounter}`;
@@ -716,7 +820,7 @@ ipcMain.handle('open-blogger-detail', async (event, url, cookies) => {
     
     detailWindow.loadURL(url);
     return { success: true };
-});
+}));
 
 // ==================== 激活码验证 API ====================
 

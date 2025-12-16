@@ -1,8 +1,8 @@
 {
   "save_mode": "local",
   "local": {
-    "filename": "collected_data4.xlsx",
-    "path": "C:\\Users\\LTX\\Desktop"
+    "filename": "collected_data433.xlsx",
+    "path": "C:\\Users\\LTX-SXY\\Desktop"
   },
   "performance_fields": [
     "日常笔记-图文+视频-近30天-全流量",
@@ -18,5 +18,7 @@
     "合作笔记-图文-近90天-全流量",
     "合作笔记-视频-近90天-全流量"
   ],
-  "max_count": 9999
+  "max_count": 9999,
+  "concurrency": 2,
+  "throttle_ms": 200
 }

@@ -29,6 +29,25 @@ const HEARTBEAT_INTERVAL = 5 * 60 * 1000;
 // 加密密钥 (与服务端保持一致)
 const CLIENT_KEY = 'xhs-client-secret-key-2024';
 
+function generateClientSignature(data) {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    return crypto.createHmac('sha256', CLIENT_KEY)
+        .update(str)
+        .digest('hex');
+}
+
+function verifyClientSignature(data, signature) {
+    const expectedSig = generateClientSignature(data);
+    try {
+        return crypto.timingSafeEqual(
+            Buffer.from(expectedSig),
+            Buffer.from(signature)
+        );
+    } catch (e) {
+        return false;
+    }
+}
+
 // ==================== 机器码生成 ====================
 
 /**
@@ -228,6 +247,8 @@ function sendRequest(path, data) {
     return new Promise((resolve, reject) => {
         const timestamp = Date.now();
         const postData = JSON.stringify(data);
+        const payloadForSig = `${postData}.${timestamp}`;
+        const reqSignature = generateClientSignature(payloadForSig);
         
         const options = {
             hostname: AUTH_SERVER.host,
@@ -238,6 +259,7 @@ function sendRequest(path, data) {
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData),
                 'X-Timestamp': timestamp.toString(),
+                'X-Signature': reqSignature,
                 'User-Agent': 'XHS-Client/1.0'
             },
             timeout: 10000
@@ -251,6 +273,18 @@ function sendRequest(path, data) {
             res.on('end', () => {
                 try {
                     const result = JSON.parse(body);
+
+                    // 成功响应要求携带签名，且必须通过校验
+                    if (result && result.success) {
+                        if (!result.signature || !result.data) {
+                            return reject(new Error('响应缺少签名'));
+                        }
+                        const ok = verifyClientSignature(JSON.stringify(result.data), result.signature);
+                        if (!ok) {
+                            return reject(new Error('响应签名校验失败'));
+                        }
+                    }
+
                     resolve(result);
                 } catch (e) {
                     reject(new Error('解析响应失败'));
