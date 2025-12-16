@@ -617,6 +617,11 @@ ipcMain.handle('fetch-blogger-list', async (event, pageNum, capturedReq) => {
     });
 });
 
+// 获取捕获的请求
+ipcMain.handle('get-captured-request', () => {
+    return capturedRequest;
+});
+
 // 关闭博主广场窗口
 ipcMain.handle('close-blogger-browser', () => {
     if (bloggerWindow && !bloggerWindow.isDestroyed()) {
