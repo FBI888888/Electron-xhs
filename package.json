@@ -58,7 +58,7 @@
       "category": "public.app-category.productivity"
     },
     "dmg": {
-      "title": "蒲公英达人采集系统",
+      "title": "XHS-Collector",
       "contents": [
         { "x": 130, "y": 220 },
         { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
