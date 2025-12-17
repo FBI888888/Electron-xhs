@@ -302,8 +302,144 @@ ipcMain.handle('select-save-path', async (event, options) => {
     return result.filePath || null;
 });
 
+let xhsLoginWindow = null;
+let xhsLoginSessionCounter = 0;
+
+ipcMain.handle('open-xhs-login', withLicenseGuard(async () => {
+    if (xhsLoginWindow && !xhsLoginWindow.isDestroyed()) {
+        xhsLoginWindow.focus();
+        return { success: true, message: '窗口已打开' };
+    }
+
+    xhsLoginSessionCounter++;
+    const partition = `memory-xhs-login-${Date.now()}-${xhsLoginSessionCounter}`;
+    const { session } = require('electron');
+    const xhsSession = session.fromPartition(partition, { cache: false });
+
+    xhsSession.clearStorageData();
+    xhsSession.clearCache();
+
+    xhsLoginWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            partition: partition
+        },
+        parent: mainWindow,
+        title: '小红书登录'
+    });
+
+    let cookiesCaptured = false;
+    let pollTimer = null;
+    let pollTimeout = null;
+
+    const buildCookieHeaderFromSession = async () => {
+        const all = await xhsSession.cookies.get({ domain: '.xiaohongshu.com' });
+        return all
+            .filter(c => c && c.name)
+            .map(c => `${c.name}=${c.value || ''}`)
+            .join('; ');
+    };
+
+    const captureAndClose = async () => {
+        if (cookiesCaptured) return;
+        cookiesCaptured = true;
+
+        try {
+            const cookies = await buildCookieHeaderFromSession();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('xhs-login-cookies-captured', cookies);
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        try {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+            if (pollTimeout) {
+                clearTimeout(pollTimeout);
+                pollTimeout = null;
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        setTimeout(() => {
+            if (xhsLoginWindow && !xhsLoginWindow.isDestroyed()) {
+                xhsLoginWindow.close();
+                xhsLoginWindow = null;
+            }
+        }, 300);
+    };
+
+    const checkLoginByFetch = async () => {
+        if (cookiesCaptured) return;
+        if (!xhsLoginWindow || xhsLoginWindow.isDestroyed()) return;
+
+        try {
+            const json = await xhsLoginWindow.webContents.executeJavaScript(`
+                (async () => {
+                    try {
+                        const res = await fetch('https://edith.xiaohongshu.com/api/sns/web/v2/user/me', {
+                            credentials: 'include'
+                        });
+                        return await res.json();
+                    } catch (e) {
+                        return null;
+                    }
+                })();
+            `, true);
+
+            const ok = json && json.success === true && json.code === 0 && json.data && json.data.red_id;
+            if (ok) {
+                await captureAndClose();
+            }
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    pollTimer = setInterval(checkLoginByFetch, 1200);
+    pollTimeout = setTimeout(() => {
+        try {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        } catch (e) {
+            // ignore
+        }
+    }, 2 * 60 * 1000);
+
+    xhsLoginWindow.on('closed', () => {
+        try {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+            if (pollTimeout) {
+                clearTimeout(pollTimeout);
+                pollTimeout = null;
+            }
+        } catch (e) {
+            // ignore
+        }
+        xhsSession.clearStorageData();
+        xhsSession.clearCache();
+        xhsLoginWindow = null;
+    });
+
+    xhsLoginWindow.loadURL('https://www.xiaohongshu.com/login');
+    return { success: true, message: '登录窗口已打开，请在浏览器中登录' };
+}));
+
 // 解析短链接：通过隐藏窗口跟随重定向，拿到最终长链接
-ipcMain.handle('resolve-shortlink', withLicenseGuard(async (event, shortUrl) => {
+ipcMain.handle('resolve-shortlink', withLicenseGuard(async (event, shortUrl, xhsCookies) => {
     return new Promise(async (resolve) => {
         if (!shortUrl || typeof shortUrl !== 'string') {
             resolve({ success: false, message: '短链接不能为空' });
@@ -346,6 +482,33 @@ ipcMain.handle('resolve-shortlink', withLicenseGuard(async (event, shortUrl) => 
         };
 
         let timeout = null;
+
+        const injectXhsCookies = async () => {
+            if (!xhsCookies || typeof xhsCookies !== 'string') return;
+            const pairs = xhsCookies.split(';').map(c => c.trim()).filter(c => c);
+            for (const pair of pairs) {
+                const [name, ...valueParts] = pair.split('=');
+                const value = valueParts.join('=');
+                if (name && value) {
+                    try {
+                        await s.cookies.set({
+                            url: 'https://www.xiaohongshu.com',
+                            name: name.trim(),
+                            value: value.trim(),
+                            domain: '.xiaohongshu.com'
+                        });
+                        await s.cookies.set({
+                            url: 'https://edith.xiaohongshu.com',
+                            name: name.trim(),
+                            value: value.trim(),
+                            domain: '.xiaohongshu.com'
+                        });
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+            }
+        };
 
         const attachHandlers = (targetWin) => {
             const markUrl = (url) => {
@@ -396,6 +559,7 @@ ipcMain.handle('resolve-shortlink', withLicenseGuard(async (event, shortUrl) => 
                             // ignore
                         }
 
+                        await injectXhsCookies();
                         await win.loadURL(shortUrl.trim());
                         return;
                     } catch (e) {
@@ -439,6 +603,7 @@ ipcMain.handle('resolve-shortlink', withLicenseGuard(async (event, shortUrl) => 
                 finish({ success: false, message: '解析超时', finalUrl: last });
             }, 15000);
 
+            await injectXhsCookies();
             await win.loadURL(shortUrl.trim());
         } catch (e) {
             finish({ success: false, message: e.message || '解析失败' });

@@ -6,6 +6,7 @@ const path = require('path');
 const DATA_DIR = 'data';
 const ACCOUNTS_FILE = 'pgy_username.json';
 const SETTINGS_FILE = 'collect_settings.json';
+const XHS_COOKIES_FILE = 'xhs_cookies.json';
 
 // 全局状态
 let accounts = [];
@@ -18,6 +19,8 @@ let currentMemberLevel = null; // 当前会员等级
 let linkConvertItems = [];
 let isConvertingLinks = false;
 let linkConvertShouldStop = false;
+
+let xhsCookies = '';
 
 // 高级功能权限配置 (VIP无法访问的页面)
 const PREMIUM_PAGES = ['blogger-list']; // 达人列表需要VVIP或SVIP
@@ -248,6 +251,30 @@ function setLinkConvertStatusText(text, color = '#666') {
     el.style.color = color;
 }
 
+async function loadXhsCookies() {
+    try {
+        const data = await loadJsonData(XHS_COOKIES_FILE, null);
+        xhsCookies = data?.cookies || '';
+    } catch (e) {
+        xhsCookies = '';
+    }
+}
+
+async function saveXhsCookies(cookies) {
+    xhsCookies = cookies || '';
+    await saveJsonData(XHS_COOKIES_FILE, { cookies: xhsCookies, updated_at: new Date().toISOString() });
+}
+
+function hasXhsCookies() {
+    return !!(xhsCookies && String(xhsCookies).trim());
+}
+
+function updateLinkConvertLoginUI() {
+    const loginBtn = document.getElementById('xhs-login-btn');
+    if (!loginBtn) return;
+    loginBtn.textContent = hasXhsCookies() ? '小红书已登录(更新)' : '小红书登录';
+}
+
 function renderLinkConvertTable() {
     const tbody = document.getElementById('link-convert-tbody');
     if (!tbody) return;
@@ -301,12 +328,17 @@ async function convertSingleLink(index) {
     if (isConvertingLinks) return;
     if (!Number.isFinite(index) || index < 0 || index >= linkConvertItems.length) return;
 
+    if (!hasXhsCookies()) {
+        showToast('warning', '提示', '请先点击“小红书登录”获取CK后再转换');
+        return;
+    }
+
     const row = linkConvertItems[index];
     row.status = '转换中';
     renderLinkConvertTable();
     setLinkConvertStatusText(`转换单条：${index + 1}/${linkConvertItems.length}`, '#007bff');
 
-    const result = await ipcRenderer.invoke('resolve-shortlink', row.shortUrl);
+    const result = await ipcRenderer.invoke('resolve-shortlink', row.shortUrl, xhsCookies);
     const finalUrl = result?.finalUrl || '';
     const base = extractBaseProfileUrl(finalUrl);
 
@@ -531,6 +563,11 @@ async function startConvertShortlinks() {
         return;
     }
 
+    if (!hasXhsCookies()) {
+        showToast('warning', '提示', '请先点击“小红书登录”获取CK后再开始转换');
+        return;
+    }
+
     isConvertingLinks = true;
     const startBtn = document.getElementById('start-convert-btn');
     linkConvertShouldStop = false;
@@ -549,7 +586,7 @@ async function startConvertShortlinks() {
             renderLinkConvertTable();
             setLinkConvertStatusText(`转换进度 ${i + 1}/${linkConvertItems.length}`, '#007bff');
 
-            const result = await ipcRenderer.invoke('resolve-shortlink', row.shortUrl);
+            const result = await ipcRenderer.invoke('resolve-shortlink', row.shortUrl, xhsCookies);
             const finalUrl = result?.finalUrl || '';
             const base = extractBaseProfileUrl(finalUrl);
 
@@ -584,6 +621,17 @@ async function startConvertShortlinks() {
 }
 
 function initLinkConvertPage() {
+    const loginBtn = document.getElementById('xhs-login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', async () => {
+            const res = await ipcRenderer.invoke('open-xhs-login');
+            if (res && res.success) {
+                showToast('info', '提示', '请在弹出的窗口中登录小红书，登录成功后将自动保存CK');
+            } else {
+                showToast('error', '打开失败', res?.message || '无法打开登录窗口');
+            }
+        });
+    }
     const excelBtn = document.getElementById('link-excel-import-btn');
     if (excelBtn) excelBtn.addEventListener('click', importShortlinksFromExcel);
 
@@ -602,6 +650,7 @@ function initLinkConvertPage() {
     if (exportBtn) exportBtn.addEventListener('click', exportLinkConvertData);
 
     updateLinkConvertStartButton();
+    updateLinkConvertLoginUI();
     renderLinkConvertTable();
 }
 
@@ -3074,6 +3123,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 先初始化会员等级 (用于权限控制)
     await initMemberLevel();
+
+    await loadXhsCookies();
+
+    ipcRenderer.on('xhs-login-cookies-captured', async (event, cookies) => {
+        try {
+            await saveXhsCookies(cookies);
+            updateLinkConvertLoginUI();
+            showToast('success', '登录成功', '已获取并保存小红书CK');
+        } catch (e) {
+            showToast('error', '保存失败', e.message);
+        }
+    });
     
     initNavigation();
     initAccountPage();
