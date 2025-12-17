@@ -239,6 +239,22 @@
                                 <label class="form-label">账号最大采集次数:</label>
                                 <input type="number" class="input" id="max-count-input" value="9999" min="1" max="99999" style="width: 150px;">
                             </div>
+                            <div class="form-row" style="margin-top: 15px;">
+                                <label class="form-label">粉丝画像字段拆分:</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="split-fans-profile-toggle">
+                                    <span class="slider"></span>
+                                </label>
+                                <span style="margin-left: 10px; color: #666; font-size: 13px;">开启后导出Excel时将粉丝画像各分布字段拆分为独立列</span>
+                            </div>
+                            <div class="form-row" style="margin-top: 15px;">
+                                <label class="form-label">双线程采集:</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="dual-thread-toggle">
+                                    <span class="slider"></span>
+                                </label>
+                                <span style="margin-left: 10px; color: #666; font-size: 13px;">开启后同时采集两个博主，加快采集速度</span>
+                            </div>
                         </div>
                     </div>
 

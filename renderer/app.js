@@ -535,7 +535,9 @@ function getDefaultSettings() {
         ],
         max_count: 9999,
         concurrency: 2,
-        throttle_ms: 200
+        throttle_ms: 500,
+        split_fans_profile: false,
+        dual_thread: false
     };
 }
 
@@ -566,6 +568,12 @@ async function loadSettings() {
         if (settings.throttle_ms !== undefined) {
             defaultSettings.throttle_ms = settings.throttle_ms;
         }
+        if (settings.split_fans_profile !== undefined) {
+            defaultSettings.split_fans_profile = settings.split_fans_profile;
+        }
+        if (settings.dual_thread !== undefined) {
+            defaultSettings.dual_thread = settings.dual_thread;
+        }
     }
     
     settings = defaultSettings;
@@ -576,6 +584,18 @@ function renderSettings() {
     document.getElementById('filename-input').value = settings.local?.filename || '';
     document.getElementById('path-input').value = settings.local?.path || '';
     document.getElementById('max-count-input').value = settings.max_count || 9999;
+    
+    // 渲染粉丝画像字段拆分开关状态
+    const splitToggle = document.getElementById('split-fans-profile-toggle');
+    if (splitToggle) {
+        splitToggle.checked = settings.split_fans_profile || false;
+    }
+    
+    // 渲染双线程采集开关状态
+    const dualThreadToggle = document.getElementById('dual-thread-toggle');
+    if (dualThreadToggle) {
+        dualThreadToggle.checked = settings.dual_thread || false;
+    }
     
     // 渲染复选框状态
     const selectedFields = settings.performance_fields || [];
@@ -588,6 +608,14 @@ async function saveSettings(showNotification = false) {
     const filename = document.getElementById('filename-input').value.trim();
     const savePath = document.getElementById('path-input').value.trim();
     const maxCount = parseInt(document.getElementById('max-count-input').value) || 9999;
+    
+    // 获取粉丝画像字段拆分开关状态
+    const splitToggle = document.getElementById('split-fans-profile-toggle');
+    const splitFansProfile = splitToggle ? splitToggle.checked : false;
+    
+    // 获取双线程采集开关状态
+    const dualThreadToggle = document.getElementById('dual-thread-toggle');
+    const dualThread = dualThreadToggle ? dualThreadToggle.checked : false;
     
     // 获取选中的字段（允许为空）
     const selectedFields = [];
@@ -603,8 +631,10 @@ async function saveSettings(showNotification = false) {
         },
         performance_fields: selectedFields,
         max_count: maxCount,
-        concurrency: settings?.concurrency ?? 2,
-        throttle_ms: settings?.throttle_ms ?? 1000
+        concurrency: dualThread ? 2 : 1,
+        throttle_ms: settings?.throttle_ms ?? 1000,
+        split_fans_profile: splitFansProfile,
+        dual_thread: dualThread
     };
     
     await saveJsonData(SETTINGS_FILE, settings);
@@ -646,6 +676,23 @@ function initSettingsPage() {
     // 自动保存：监听输入变化
     document.getElementById('filename-input').addEventListener('input', saveSettings);
     document.getElementById('max-count-input').addEventListener('input', saveSettings);
+    
+    // 监听粉丝画像字段拆分开关变化
+    const splitToggle = document.getElementById('split-fans-profile-toggle');
+    if (splitToggle) {
+        splitToggle.addEventListener('change', saveSettings);
+    }
+    
+    // 监听双线程采集开关变化
+    const dualThreadToggle = document.getElementById('dual-thread-toggle');
+    if (dualThreadToggle) {
+        dualThreadToggle.addEventListener('change', function() {
+            if (this.checked) {
+                showToast('warning', '双线程提醒', '双线程会加快采集速度，但有可能导致蒲公英账号异常，请谨慎使用');
+            }
+            saveSettings();
+        });
+    }
     
     // 监听所有复选框变化
     document.querySelectorAll('input[name="performance"]').forEach(checkbox => {
@@ -1217,6 +1264,118 @@ function stopCollect() {
 
 // ==================== 保存到Excel ====================
 
+/**
+ * 解析粉丝画像字符串，拆分为键值对
+ * 支持格式:
+ * - "男3.09%，女96.91%" => [["男", "3.09%"], ["女", "96.91%"]]
+ * - "<18 4.6%，18-24 37.8%" => [["<18", "4.6%"], ["18-24", "37.8%"]]
+ * - "广东 15.0%，浙江 9.8%" => [["广东", "15.0%"], ["浙江", "9.8%"]]
+ * - "健康 8.5%，时尚 6.2%" => [["健康", "8.5%"], ["时尚", "6.2%"]]
+ */
+function parseFansProfileString(str) {
+    if (!str || typeof str !== 'string') return [];
+    
+    // 按中文逗号或英文逗号分割
+    const parts = str.split(/[，,]/).map(s => s.trim()).filter(s => s);
+    const result = [];
+    
+    for (const part of parts) {
+        // 统一匹配：从末尾找百分比数字，前面的都是名称
+        // 匹配格式: "名称 X.XX%" 或 "名称X.XX%" (百分比在末尾)
+        const match = part.match(/^(.+?)\s*(\d+\.?\d*%)$/);
+        if (match) {
+            const name = match[1].trim();
+            const value = match[2];
+            if (name) {
+                result.push([name, value]);
+            }
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * 根据粉丝画像数据生成拆分后的表头
+ * 需要遍历所有数据来收集所有可能的子字段
+ */
+function getSplitFansProfileHeaders(collectItems) {
+    const headersMap = {
+        '粉丝画像-性别分布': new Set(),
+        '粉丝画像-年龄分布': new Set(),
+        '粉丝画像-地域分布-按省份': new Set(),
+        '粉丝画像-地域分布-按城市': new Set(),
+        '粉丝画像-用户设备分布': new Set(),
+        '粉丝画像-用户兴趣': new Set(),
+    };
+    
+    for (const item of collectItems) {
+        if (!item.collected_data) continue;
+        const d = item.collected_data;
+        
+        for (const fieldKey of Object.keys(headersMap)) {
+            const parsed = parseFansProfileString(d[fieldKey] || '');
+            for (const [name] of parsed) {
+                headersMap[fieldKey].add(name);
+            }
+        }
+    }
+    
+    // 转换为排序后的数组
+    const headers = [];
+    for (const [fieldKey, nameSet] of Object.entries(headersMap)) {
+        const sortedNames = Array.from(nameSet).sort();
+        for (const name of sortedNames) {
+            headers.push(`${fieldKey}-${name}`);
+        }
+    }
+    
+    return headers;
+}
+
+/**
+ * 根据拆分后的表头获取对应的值
+ */
+function getSplitFansProfileValues(data, splitHeaders) {
+    const values = [];
+    
+    // 预解析所有粉丝画像字段
+    const parsedData = {
+        '粉丝画像-性别分布': {},
+        '粉丝画像-年龄分布': {},
+        '粉丝画像-地域分布-按省份': {},
+        '粉丝画像-地域分布-按城市': {},
+        '粉丝画像-用户设备分布': {},
+        '粉丝画像-用户兴趣': {},
+    };
+    
+    for (const fieldKey of Object.keys(parsedData)) {
+        const parsed = parseFansProfileString(data[fieldKey] || '');
+        for (const [name, value] of parsed) {
+            parsedData[fieldKey][name] = value;
+        }
+    }
+    
+    // 按表头顺序填充值
+    for (const header of splitHeaders) {
+        // 解析表头获取原始字段和子字段名
+        let matched = false;
+        for (const fieldKey of Object.keys(parsedData)) {
+            if (header.startsWith(fieldKey + '-')) {
+                const subName = header.substring(fieldKey.length + 1);
+                values.push(parsedData[fieldKey][subName] || '');
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            values.push('');
+        }
+    }
+    
+    return values;
+}
+
 function getPerformanceFieldHeaders(fieldPrefix) {
     const headers = [
         `${fieldPrefix}-笔记数`,
@@ -1365,17 +1524,32 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
             performanceHeaders = performanceHeaders.concat(getPerformanceFieldHeaders(fieldPrefix));
         }
         
-        // 粉丝指标和粉丝画像字段
-        const fansHeaders = [
+        // 粉丝指标字段（固定）
+        const fansMetricsHeaders = [
             '粉丝指标-粉丝增量', '粉丝指标-粉丝量变化幅度', '粉丝指标-活跃粉丝占比', 
             '粉丝指标-阅读粉丝占比', '粉丝指标-互动粉丝占比', '粉丝指标-下单粉丝占比',
-            '粉丝画像-性别分布', '粉丝画像-年龄分布', '粉丝画像-地域分布-按省份', 
-            '粉丝画像-地域分布-按城市', '粉丝画像-用户设备分布', '粉丝画像-用户兴趣',
-            '采集时间',
         ];
         
+        // 根据设置决定粉丝画像字段是否拆分
+        const splitFansProfile = loadedSettings.split_fans_profile || false;
+        let fansProfileHeaders = [];
+        let splitFansProfileHeadersList = [];
+        
+        if (splitFansProfile) {
+            // 拆分模式：动态生成表头
+            splitFansProfileHeadersList = getSplitFansProfileHeaders(collectItems);
+            fansProfileHeaders = splitFansProfileHeadersList;
+            console.log(`粉丝画像字段拆分模式：共 ${splitFansProfileHeadersList.length} 个拆分字段`);
+        } else {
+            // 原始模式：使用固定表头
+            fansProfileHeaders = [
+                '粉丝画像-性别分布', '粉丝画像-年龄分布', '粉丝画像-地域分布-按省份', 
+                '粉丝画像-地域分布-按城市', '粉丝画像-用户设备分布', '粉丝画像-用户兴趣',
+            ];
+        }
+        
         // 合并所有表头
-        const headers = [...baseHeaders, ...performanceHeaders, ...fansHeaders];
+        const headers = [...baseHeaders, ...performanceHeaders, ...fansMetricsHeaders, ...fansProfileHeaders, '采集时间'];
         
         // 构建数据
         const data = [headers];
@@ -1434,25 +1608,35 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
                     performanceValues = performanceValues.concat(getPerformanceFieldValues(d, fieldPrefix));
                 }
                 
-                // 粉丝指标和粉丝画像数据
-                const fansValues = [
+                // 粉丝指标数据（固定）
+                const fansMetricsValues = [
                     d['粉丝指标-粉丝增量'] || '',
                     d['粉丝指标-粉丝量变化幅度'] || '',
                     d['粉丝指标-活跃粉丝占比'] || '',
                     d['粉丝指标-阅读粉丝占比'] || '',
                     d['粉丝指标-互动粉丝占比'] || '',
                     d['粉丝指标-下单粉丝占比'] || '',
-                    d['粉丝画像-性别分布'] || '',
-                    d['粉丝画像-年龄分布'] || '',
-                    d['粉丝画像-地域分布-按省份'] || '',
-                    d['粉丝画像-地域分布-按城市'] || '',
-                    d['粉丝画像-用户设备分布'] || '',
-                    d['粉丝画像-用户兴趣'] || '',
-                    item.collect_time || '',
                 ];
                 
+                // 粉丝画像数据（根据设置决定是否拆分）
+                let fansProfileValues = [];
+                if (splitFansProfile) {
+                    // 拆分模式：按拆分后的表头获取值
+                    fansProfileValues = getSplitFansProfileValues(d, splitFansProfileHeadersList);
+                } else {
+                    // 原始模式：使用原始值
+                    fansProfileValues = [
+                        d['粉丝画像-性别分布'] || '',
+                        d['粉丝画像-年龄分布'] || '',
+                        d['粉丝画像-地域分布-按省份'] || '',
+                        d['粉丝画像-地域分布-按城市'] || '',
+                        d['粉丝画像-用户设备分布'] || '',
+                        d['粉丝画像-用户兴趣'] || '',
+                    ];
+                }
+                
                 // 合并所有行数据
-                const row = [...baseRow, ...performanceValues, ...fansValues];
+                const row = [...baseRow, ...performanceValues, ...fansMetricsValues, ...fansProfileValues, item.collect_time || ''];
                 data.push(row);
             }
         }
