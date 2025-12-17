@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蒲公英达人采集管理系统 V1.1.0</title>
+    <title>蒲公英达人采集管理系统 V1.2.0</title>
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.263.1/font/lucide.min.css">
 </head>
@@ -13,7 +13,7 @@
         <nav class="sidebar">
             <div class="sidebar-header">
                 <h2>蒲公英采集</h2>
-                <span style="font-size: 11px; color: #888; margin-top: 2px;">V1.1.0</span>
+                <span style="font-size: 11px; color: #888; margin-top: 2px;">V1.2.0</span>
             </div>
             <ul class="nav-list">
                 <li class="nav-item active" data-page="account">
@@ -38,6 +38,13 @@
                     </svg>
                     <span>采集管理</span>
                 </li>
+                <li class="nav-item" data-page="link-convert">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 1 7 0l1 1a5 5 0 0 1 0 7 5 5 0 0 1-7 0l-1-1"></path>
+                        <path d="M14 11a5 5 0 0 0-7 0l-1 1a5 5 0 0 0 0 7 5 5 0 0 0 7 0l1-1"></path>
+                    </svg>
+                    <span>链接转换</span>
+                </li>
                 <li class="nav-item" data-page="blogger-list">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
@@ -46,6 +53,13 @@
                         <line x1="22" y1="11" x2="16" y2="11"></line>
                     </svg>
                     <span>达人列表</span>
+                </li>
+                <li class="nav-item" data-page="invite">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 2L11 13"></path>
+                        <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+                    </svg>
+                    <span>达人邀约</span>
                 </li>
             </ul>
             <div class="nav-bottom">
@@ -356,6 +370,63 @@
                 </div>
             </div>
 
+            <!-- 链接转换页面 -->
+            <div class="page" id="page-link-convert">
+                <div class="page-header">
+                    <h1>链接转换</h1>
+                    <p>导入短链接，转换为达人主页长链接（仅保留基础链接）</p>
+                </div>
+
+                <div class="page-body">
+                    <div class="toolbar-group">
+                        <div class="toolbar">
+                            <button class="btn btn-secondary" id="link-excel-import-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                                Excel导入
+                            </button>
+                            <button class="btn btn-secondary" id="link-text-import-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                                文本导入
+                            </button>
+                            <button class="btn btn-secondary" id="link-txt-import-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                TXT文件导入
+                            </button>
+                            <div class="toolbar-divider"></div>
+                            <button class="btn btn-primary" id="start-convert-btn">开始转换</button>
+                            <button class="btn btn-secondary" id="link-export-data-btn">导出数据</button>
+                            <span class="fetch-status" id="link-convert-status"></span>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="flex: 1; overflow: auto;">
+                        <table class="data-table" id="link-convert-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 120px;">状态</th>
+                                    <th>短链接</th>
+                                    <th>长链接</th>
+                                </tr>
+                            </thead>
+                            <tbody id="link-convert-tbody">
+                                <!-- 数据由JS动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- 达人列表页面 -->
             <div class="page" id="page-blogger-list">
                 <div class="page-header">
@@ -428,6 +499,84 @@
                                 </tr>
                             </thead>
                             <tbody id="blogger-list-tbody">
+                                <!-- 数据由JS动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 达人邀约页面 -->
+            <div class="page" id="page-invite">
+                <div class="page-header">
+                    <h1>达人邀约</h1>
+                </div>
+                <div class="page-body">
+                    <div class="toolbar">
+                        <button class="btn btn-secondary" id="invite-excel-import-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            Excel导入
+                        </button>
+                        <button class="btn btn-secondary" id="invite-export-template-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            导出模板
+                        </button>
+                        <button class="btn btn-secondary" id="invite-export-data-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            导出数据
+                        </button>
+                        <span style="margin-left: 10px; color: #666;">选择账号:</span>
+                        <select class="input" id="invite-account-select" style="width: 220px;"></select>
+                        <div class="toolbar-divider"></div>
+                        <button class="btn btn-primary" id="first-invite-btn" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            首次邀约
+                        </button>
+                        <button class="btn btn-secondary" id="pause-invite-btn" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <rect x="6" y="4" width="4" height="16"></rect>
+                                <rect x="14" y="4" width="4" height="16"></rect>
+                            </svg>
+                            暂停邀约
+                        </button>
+                        <button class="btn btn-secondary" id="start-invite-btn" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M22 2L11 13"></path>
+                                <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+                            </svg>
+                            启动邀约
+                        </button>
+                        <span class="fetch-status" id="invite-status"></span>
+                    </div>
+
+                    <div class="table-container" style="flex: 1; overflow: auto;">
+                        <table class="data-table" id="invite-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 110px;">邀约状态</th>
+                                    <th style="width: 120px;">账号昵称</th>
+                                    <th>主页url</th>
+                                    <th style="width: 90px;">合作类型</th>
+                                    <th style="width: 160px;">产品名称</th>
+                                    <th>合作内容</th>
+                                    <th style="width: 140px;">联系方式</th>
+                                    <th style="width: 170px;">邀约时间</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invite-tbody">
                                 <!-- 数据由JS动态填充 -->
                             </tbody>
                         </table>

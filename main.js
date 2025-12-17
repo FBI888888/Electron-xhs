@@ -127,6 +127,20 @@ function withLicenseGuard(handler) {
     };
 }
 
+function withSVIPGuard(handler) {
+    return withLicenseGuard(async (event, ...args) => {
+        const info = license.getLicenseInfo && license.getLicenseInfo();
+        if (!info || info.member_level !== 'SVIP') {
+            return {
+                success: false,
+                code: 'SVIP_REQUIRED',
+                message: '该功能需要SVIP权限'
+            };
+        }
+        return handler(event, ...args);
+    });
+}
+
 function createWindow() {
     // 移除菜单栏
     Menu.setApplicationMenu(null);
@@ -288,6 +302,150 @@ ipcMain.handle('select-save-path', async (event, options) => {
     return result.filePath || null;
 });
 
+// 解析短链接：通过隐藏窗口跟随重定向，拿到最终长链接
+ipcMain.handle('resolve-shortlink', withLicenseGuard(async (event, shortUrl) => {
+    return new Promise(async (resolve) => {
+        if (!shortUrl || typeof shortUrl !== 'string') {
+            resolve({ success: false, message: '短链接不能为空' });
+            return;
+        }
+
+        linkConvertSessionCounter++;
+        const partition = `memory-link-convert-${Date.now()}-${linkConvertSessionCounter}`;
+        const { session } = require('electron');
+        const s = session.fromPartition(partition, { cache: false });
+
+        let win = null;
+        let finalUrl = '';
+        let settled = false;
+        let retryCount = 0;
+        const maxRetry = 2;
+
+        const isLoginRedirect = (url) => {
+            if (!url || typeof url !== 'string') return false;
+            return url.startsWith('https://www.xiaohongshu.com/login') && url.includes('redirectPath=');
+        };
+
+        const finish = (payload) => {
+            if (settled) return;
+            settled = true;
+            try {
+                if (win && !win.isDestroyed()) {
+                    win.close();
+                }
+            } catch (e) {
+                // ignore
+            }
+            try {
+                s.clearStorageData();
+                s.clearCache();
+            } catch (e) {
+                // ignore
+            }
+            resolve(payload);
+        };
+
+        let timeout = null;
+
+        const attachHandlers = (targetWin) => {
+            const markUrl = (url) => {
+                if (url && typeof url === 'string') {
+                    finalUrl = url;
+                }
+            };
+
+            targetWin.webContents.on('will-redirect', (e, url) => {
+                markUrl(url);
+            });
+            targetWin.webContents.on('did-redirect-navigation', (e, url) => {
+                markUrl(url);
+            });
+            targetWin.webContents.on('did-navigate', (e, url) => {
+                markUrl(url);
+            });
+            targetWin.webContents.on('did-navigate-in-page', (e, url) => {
+                markUrl(url);
+            });
+
+            targetWin.webContents.on('did-finish-load', async () => {
+                const current = finalUrl || (targetWin && !targetWin.isDestroyed() ? targetWin.webContents.getURL() : '');
+                if (isLoginRedirect(current) && retryCount < maxRetry) {
+                    retryCount++;
+                    try {
+                        if (timeout) clearTimeout(timeout);
+                        const oldWin = win;
+                        win = new BrowserWindow({
+                            width: 900,
+                            height: 700,
+                            show: false,
+                            webPreferences: {
+                                nodeIntegration: false,
+                                contextIsolation: true,
+                                partition: partition
+                            }
+                        });
+                        attachHandlers(win);
+                        timeout = setTimeout(() => {
+                            const last = finalUrl || (win && !win.isDestroyed() ? win.webContents.getURL() : '');
+                            finish({ success: false, message: '解析超时', finalUrl: last });
+                        }, 15000);
+
+                        try {
+                            if (oldWin && !oldWin.isDestroyed()) oldWin.close();
+                        } catch (e) {
+                            // ignore
+                        }
+
+                        await win.loadURL(shortUrl.trim());
+                        return;
+                    } catch (e) {
+                        // fall through
+                    }
+                }
+
+                if (timeout) clearTimeout(timeout);
+                finish({ success: true, finalUrl: current });
+            });
+
+            targetWin.webContents.on('did-fail-load', (e, errorCode, errorDescription, validatedURL) => {
+                if (timeout) clearTimeout(timeout);
+                const url = finalUrl || validatedURL || (targetWin && !targetWin.isDestroyed() ? targetWin.webContents.getURL() : '');
+                finish({ success: false, message: errorDescription || '加载失败', errorCode, finalUrl: url });
+            });
+
+            targetWin.on('closed', () => {
+                if (timeout) clearTimeout(timeout);
+                if (!settled) {
+                    finish({ success: false, message: '窗口已关闭', finalUrl: finalUrl });
+                }
+            });
+        };
+
+        try {
+            win = new BrowserWindow({
+                width: 900,
+                height: 700,
+                show: false,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true,
+                    partition: partition
+                }
+            });
+
+            attachHandlers(win);
+            timeout = setTimeout(() => {
+                const last = finalUrl || (win && !win.isDestroyed() ? win.webContents.getURL() : '');
+                finish({ success: false, message: '解析超时', finalUrl: last });
+            }, 15000);
+
+            await win.loadURL(shortUrl.trim());
+        } catch (e) {
+            finish({ success: false, message: e.message || '解析失败' });
+        }
+    });
+}));
+
 ipcMain.handle('read-file', async (event, filePath) => {
     try {
         const content = fs.readFileSync(filePath, 'utf-8');
@@ -440,6 +598,15 @@ let bloggerWindow = null;
 let capturedRequest = null;
 let bloggerSessionCounter = 0;
 
+// ==================== 链接转换功能 ====================
+let linkConvertSessionCounter = 0;
+
+// ==================== 达人邀约功能 ====================
+
+let inviteWindow = null;
+let capturedInviteRequest = null;
+let inviteSessionCounter = 0;
+
 // 打开博主广场浏览器窗口
 ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) => {
     if (bloggerWindow && !bloggerWindow.isDestroyed()) {
@@ -535,6 +702,180 @@ ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) =
     });
     
     return { success: true, message: '浏览器窗口已打开' };
+}));
+
+// 打开邀约浏览器窗口（博主主页），并捕获首次邀约请求
+ipcMain.handle('open-invite-browser', withSVIPGuard(async (event, url, cookies) => {
+    // 每次创建全新的内存会话，不保存缓存
+    inviteSessionCounter++;
+    const partition = `memory-invite-${Date.now()}-${inviteSessionCounter}`;
+    const { session } = require('electron');
+    const inviteSession = session.fromPartition(partition, { cache: false });
+
+    inviteWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            partition: partition
+        },
+        parent: mainWindow,
+        title: '达人邀约'
+    });
+
+    // 关键：处理页面内 window.open 弹窗，确保新窗口复用同一个 partition/session
+    // 否则邀约请求发生在新窗口里时，webRequest 可能无法捕获。
+    inviteWindow.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+        return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+                width: 1100,
+                height: 800,
+                parent: inviteWindow,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true,
+                    partition: partition
+                }
+            }
+        };
+    });
+
+    // 设置 cookies
+    const cookiePairs = (cookies || '').split(';').map(c => c.trim()).filter(c => c);
+    for (const pair of cookiePairs) {
+        const [name, ...valueParts] = pair.split('=');
+        const value = valueParts.join('=');
+        if (name && value) {
+            try {
+                await inviteSession.cookies.set({
+                    url: 'https://pgy.xiaohongshu.com',
+                    name: name.trim(),
+                    value: value.trim(),
+                    domain: '.xiaohongshu.com'
+                });
+            } catch (e) {
+                console.log('设置cookie失败:', name, e.message);
+            }
+        }
+    }
+
+    capturedInviteRequest = null;
+
+    // 捕获请求体
+    inviteSession.webRequest.onBeforeRequest(
+        { urls: ['https://pgy.xiaohongshu.com/api/solar/invite/initiate_invite*'] },
+        (details, callback) => {
+            if (details.method === 'POST' && details.uploadData) {
+                try {
+                    const rawData = details.uploadData[0].bytes;
+                    const bodyStr = rawData.toString('utf8');
+                    capturedInviteRequest = {
+                        url: details.url,
+                        body: JSON.parse(bodyStr)
+                    };
+                } catch (e) {
+                    console.log('解析邀约请求体失败:', e.message);
+                }
+            }
+            callback({});
+        }
+    );
+
+    // 捕获请求头并通知渲染进程
+    inviteSession.webRequest.onBeforeSendHeaders(
+        { urls: ['https://pgy.xiaohongshu.com/api/solar/invite/initiate_invite*'] },
+        (details, callback) => {
+            if (details.method === 'POST' && capturedInviteRequest) {
+                capturedInviteRequest.headers = details.requestHeaders;
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('invite-request-captured', true);
+                }
+            }
+            callback({ requestHeaders: details.requestHeaders });
+        }
+    );
+
+    inviteWindow.on('closed', () => {
+        inviteSession.clearStorageData();
+        inviteSession.clearCache();
+        inviteWindow = null;
+    });
+
+    inviteWindow.loadURL(url);
+    return { success: true, message: '邀约窗口已打开' };
+}));
+
+ipcMain.handle('get-captured-invite-request', withSVIPGuard(async () => {
+    return capturedInviteRequest;
+}));
+
+ipcMain.handle('send-invite-request', withSVIPGuard(async (event, inviteReq) => {
+    return new Promise((resolve) => {
+        try {
+            if (!inviteReq || !inviteReq.url || !inviteReq.body || !inviteReq.headers) {
+                resolve({ success: false, message: '缺少邀约请求参数' });
+                return;
+            }
+
+            const bodyStr = JSON.stringify(inviteReq.body);
+            const headers = { ...inviteReq.headers };
+
+            delete headers['content-length'];
+            delete headers['Content-Length'];
+            delete headers['accept-encoding'];
+            delete headers['Accept-Encoding'];
+            delete headers['host'];
+            delete headers['Host'];
+
+            const options = {
+                hostname: 'pgy.xiaohongshu.com',
+                path: '/api/solar/invite/initiate_invite',
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Host': 'pgy.xiaohongshu.com',
+                    'Content-Type': headers['Content-Type'] || headers['content-type'] || 'application/json;charset=UTF-8',
+                    'Content-Length': Buffer.byteLength(bodyStr)
+                },
+                timeout: 15000
+            };
+
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const jsonData = JSON.parse(data);
+                        const inviteSucceed = jsonData?.data?.inviteSucceed === true;
+                        if (jsonData?.success === true && jsonData?.code === 0 && inviteSucceed) {
+                            resolve({ success: true, data: jsonData });
+                        } else {
+                            resolve({
+                                success: false,
+                                message: jsonData?.msg || jsonData?.data?.hint || '邀约失败',
+                                data: jsonData
+                            });
+                        }
+                    } catch (e) {
+                        resolve({ success: false, message: `解析响应失败: ${e.message}`, raw: data });
+                    }
+                });
+            });
+
+            req.on('error', (e) => resolve({ success: false, message: `请求失败: ${e.message}` }));
+            req.on('timeout', () => {
+                req.destroy();
+                resolve({ success: false, message: '请求超时' });
+            });
+
+            req.write(bodyStr);
+            req.end();
+        } catch (e) {
+            resolve({ success: false, message: `请求异常: ${e.message}` });
+        }
+    });
 }));
 
 // 使用捕获的请求参数获取达人列表

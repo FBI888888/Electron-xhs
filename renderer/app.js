@@ -15,6 +15,10 @@ let isCollecting = false;
 let appPath = ''; // 应用根目录路径
 let currentMemberLevel = null; // 当前会员等级
 
+let linkConvertItems = [];
+let isConvertingLinks = false;
+let linkConvertShouldStop = false;
+
 // 高级功能权限配置 (VIP无法访问的页面)
 const PREMIUM_PAGES = ['blogger-list']; // 达人列表需要VVIP或SVIP
 
@@ -161,6 +165,12 @@ function initNavigation() {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const pageName = item.dataset.page;
+
+            // 达人邀约：仅SVIP可用
+            if (pageName === 'invite' && !hasSVIPAccess()) {
+                showSVIPPermissionDenied();
+                return;
+            }
             
             // 检查高级功能权限
             if (PREMIUM_PAGES.includes(pageName) && !hasPremiumAccess()) {
@@ -193,6 +203,27 @@ function hasPremiumAccess() {
     return currentMemberLevel === 'VVIP' || currentMemberLevel === 'SVIP';
 }
 
+// 检查是否有SVIP权限
+function hasSVIPAccess() {
+    return currentMemberLevel === 'SVIP';
+}
+
+function showSVIPPermissionDenied() {
+    showModal('权限不足', `
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🔒</div>
+            <p style="font-size: 16px; color: #333; margin-bottom: 15px;">
+                此功能为<span style="color: #db2777; font-weight: 600;">SVIP (超级会员)</span>专属功能
+            </p>
+            <p style="font-size: 14px; color: #666;">
+                如需使用请联系管理员提升权限
+            </p>
+        </div>
+    `, [
+        { text: '我知道了', value: true, primary: true }
+    ]);
+}
+
 // 显示权限不足提示
 function showPermissionDenied() {
     showModal('权限不足', `
@@ -208,6 +239,370 @@ function showPermissionDenied() {
     `, [
         { text: '我知道了', value: true, primary: true }
     ]);
+}
+
+function setLinkConvertStatusText(text, color = '#666') {
+    const el = document.getElementById('link-convert-status');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = color;
+}
+
+function renderLinkConvertTable() {
+    const tbody = document.getElementById('link-convert-tbody');
+    if (!tbody) return;
+
+    if (!linkConvertItems || linkConvertItems.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3" style="text-align: center; padding: 40px; color: #999;">暂无数据，请先导入短链接TXT</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = linkConvertItems.map((item, index) => `
+        <tr data-index="${index}">
+            <td>${item.status || ''}</td>
+            <td title="${item.shortUrl || ''}" style="word-break: break-all; max-width: 420px;">${item.shortUrl || ''}</td>
+            <td title="${item.longUrl || ''}" style="word-break: break-all; max-width: 520px;">${item.longUrl || ''}</td>
+        </tr>
+    `).join('');
+
+    // 绑定右键菜单
+    tbody.querySelectorAll('tr').forEach(row => {
+        row.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const index = parseInt(row.dataset.index);
+            showLinkConvertContextMenu(e.clientX, e.clientY, index);
+        });
+    });
+}
+
+function setLinkConvertButtonsDisabled(disabled) {
+    const excelBtn = document.getElementById('link-excel-import-btn');
+    const textBtn = document.getElementById('link-text-import-btn');
+    const txtBtn = document.getElementById('link-txt-import-btn');
+    const exportBtn = document.getElementById('link-export-data-btn');
+
+    if (excelBtn) excelBtn.disabled = disabled;
+    if (textBtn) textBtn.disabled = disabled;
+    if (txtBtn) txtBtn.disabled = disabled;
+    if (exportBtn) exportBtn.disabled = disabled;
+}
+
+function updateLinkConvertStartButton() {
+    const startBtn = document.getElementById('start-convert-btn');
+    if (!startBtn) return;
+    startBtn.textContent = isConvertingLinks ? '停止转换' : '开始转换';
+}
+
+async function convertSingleLink(index) {
+    if (isConvertingLinks) return;
+    if (!Number.isFinite(index) || index < 0 || index >= linkConvertItems.length) return;
+
+    const row = linkConvertItems[index];
+    row.status = '转换中';
+    renderLinkConvertTable();
+    setLinkConvertStatusText(`转换单条：${index + 1}/${linkConvertItems.length}`, '#007bff');
+
+    const result = await ipcRenderer.invoke('resolve-shortlink', row.shortUrl);
+    const finalUrl = result?.finalUrl || '';
+    const base = extractBaseProfileUrl(finalUrl);
+
+    if (result && result.success && base) {
+        row.status = '成功';
+        row.longUrl = base;
+    } else if (result && result.success) {
+        row.status = '未识别';
+        row.longUrl = base || finalUrl;
+    } else {
+        row.status = `失败: ${result?.message || '未知错误'}`;
+        row.longUrl = base || finalUrl;
+    }
+
+    renderLinkConvertTable();
+}
+
+function showLinkConvertContextMenu(x, y, index) {
+    // 移除已有的菜单
+    document.querySelectorAll('.context-menu').forEach(m => m.remove());
+
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.innerHTML = `
+        <div class="context-menu-item" data-action="convert">转换</div>
+    `;
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    document.body.appendChild(menu);
+
+    menu.querySelectorAll('.context-menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const action = item.dataset.action;
+            menu.remove();
+            if (action === 'convert') {
+                convertSingleLink(index);
+            }
+        });
+    });
+
+    // 点击其他地方关闭菜单
+    setTimeout(() => {
+        document.addEventListener('click', function handler() {
+            menu.remove();
+            document.removeEventListener('click', handler);
+        });
+    }, 0);
+}
+
+function extractBaseProfileUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    const m = url.match(/https?:\/\/www\.xiaohongshu\.com\/user\/profile\/[0-9a-fA-F]{24}/);
+    return m ? m[0] : '';
+}
+
+function extractShortlinksFromText(text) {
+    const rawLines = String(text || '')
+        .split(/\r?\n/)
+        .map(s => String(s || '').trim())
+        .filter(Boolean);
+
+    const extracted = [];
+    const urlRegex = /https?:\/\/(?:www\.)?xhslink\.com\/m\/[A-Za-z0-9]+/g;
+    for (const line of rawLines) {
+        const matches = line.match(urlRegex);
+        if (matches && matches.length) {
+            matches.forEach(u => extracted.push(u));
+        }
+    }
+    return Array.from(new Set(extracted.map(u => u.trim()).filter(Boolean)));
+}
+
+function setLinkConvertItemsFromUrls(urls, sourceLabel = '') {
+    if (!urls || urls.length === 0) return false;
+    linkConvertItems = urls.map((u) => ({
+        status: '未转换',
+        shortUrl: u,
+        longUrl: ''
+    }));
+    renderLinkConvertTable();
+    const suffix = sourceLabel ? `（${sourceLabel}，已自动清洗）` : '（已自动清洗）';
+    setLinkConvertStatusText(`已导入 ${linkConvertItems.length} 条短链接${suffix}`, '#666');
+    return true;
+}
+
+async function importShortlinksFromTxtFile() {
+    if (isConvertingLinks) return;
+    try {
+        const filePath = await ipcRenderer.invoke('select-file', [{ name: 'Text', extensions: ['txt'] }]);
+        if (!filePath) return;
+
+        const res = await ipcRenderer.invoke('read-file', filePath);
+        if (!res || !res.success) {
+            showToast('error', '导入失败', res?.error || '读取文件失败');
+            return;
+        }
+
+        const unique = extractShortlinksFromText(res.content || '');
+        if (!unique || unique.length === 0) {
+            showToast('warning', '提示', '未从TXT中提取到有效短链接（示例：https://xhslink.com/m/3SThRsaO3OG）');
+            return;
+        }
+
+        setLinkConvertItemsFromUrls(unique, 'TXT文件导入');
+        showToast('success', '导入成功', `已导入 ${linkConvertItems.length} 条短链接（已自动清洗）`);
+    } catch (e) {
+        showToast('error', '导入失败', e.message);
+    }
+}
+
+async function importShortlinksFromExcel() {
+    if (isConvertingLinks) return;
+    try {
+        const filePath = await ipcRenderer.invoke('select-file', [
+            { name: 'Excel', extensions: ['xlsx', 'xls'] }
+        ]);
+        if (!filePath) return;
+
+        const XLSX = require('xlsx');
+        const wb = XLSX.readFile(filePath);
+        const firstSheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+        if (!rows || rows.length === 0) {
+            showToast('warning', '提示', 'Excel无有效内容');
+            return;
+        }
+
+        const col1 = rows
+            .map(r => Array.isArray(r) ? String(r[0] ?? '').trim() : '')
+            .filter(Boolean);
+        const unique = extractShortlinksFromText(col1.join('\n'));
+        if (!unique || unique.length === 0) {
+            showToast('warning', '提示', '未从Excel第一列提取到有效短链接（示例：https://xhslink.com/m/3SThRsaO3OG）');
+            return;
+        }
+
+        setLinkConvertItemsFromUrls(unique, 'Excel导入');
+        showToast('success', '导入成功', `已导入 ${linkConvertItems.length} 条短链接（已自动清洗）`);
+    } catch (e) {
+        showToast('error', '导入失败', e.message);
+    }
+}
+
+async function importShortlinksFromTextInput() {
+    if (isConvertingLinks) return;
+    const result = await showModal('文本导入', `
+        <div class="form-group">
+            <label style="display:block; margin-bottom: 8px; font-weight: 500;">请输入短链接（支持多行/混杂文本，会自动提取xhslink短链）</label>
+            <textarea id="link-textarea" class="input" style="width: 100%; height: 200px; resize: vertical;" placeholder="示例：\nhttps://xhslink.com/m/3SThRsaO3OG\n或粘贴整段分享文案..."></textarea>
+        </div>
+    `, [
+        { text: '取消', value: false },
+        { text: '导入', value: true, primary: true }
+    ], () => {
+        const el = document.getElementById('link-textarea');
+        return el ? el.value : '';
+    });
+
+    if (!result || !result.confirmed) return;
+    const text = result.data || '';
+    const unique = extractShortlinksFromText(text);
+    if (!unique || unique.length === 0) {
+        showToast('warning', '提示', '未提取到有效短链接（示例：https://xhslink.com/m/3SThRsaO3OG）');
+        return;
+    }
+
+    setLinkConvertItemsFromUrls(unique, '文本导入');
+    showToast('success', '导入成功', `已导入 ${linkConvertItems.length} 条短链接（已自动清洗）`);
+}
+
+async function exportLinkConvertData() {
+    try {
+        if (!linkConvertItems || linkConvertItems.length === 0) {
+            showToast('warning', '提示', '暂无数据可导出');
+            return;
+        }
+
+        const filePath = await ipcRenderer.invoke('select-save-path', {
+            title: '导出链接转换数据',
+            defaultPath: 'link_convert.xlsx',
+            filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+        });
+        if (!filePath) return;
+
+        const XLSX = require('xlsx');
+        const data = [[
+            '状态',
+            '短链接',
+            '长链接'
+        ]];
+
+        linkConvertItems.forEach(item => {
+            data.push([
+                item.status || '',
+                item.shortUrl || '',
+                item.longUrl || ''
+            ]);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, '链接转换');
+        XLSX.writeFile(wb, filePath);
+
+        showToast('success', '导出成功', `数据已导出: ${filePath}`);
+    } catch (e) {
+        showToast('error', '导出失败', e.message);
+    }
+}
+
+async function startConvertShortlinks() {
+    if (isConvertingLinks) {
+        linkConvertShouldStop = true;
+        setLinkConvertStatusText('正在停止转换...', '#dc3545');
+        return;
+    }
+    if (!linkConvertItems || linkConvertItems.length === 0) {
+        showToast('warning', '提示', '请先导入短链接');
+        return;
+    }
+
+    isConvertingLinks = true;
+    const startBtn = document.getElementById('start-convert-btn');
+    linkConvertShouldStop = false;
+    setLinkConvertButtonsDisabled(true);
+    updateLinkConvertStartButton();
+    if (startBtn) startBtn.disabled = false;
+
+    try {
+        for (let i = 0; i < linkConvertItems.length; i++) {
+            if (linkConvertShouldStop) {
+                setLinkConvertStatusText('已停止转换', '#dc3545');
+                break;
+            }
+            const row = linkConvertItems[i];
+            row.status = '转换中';
+            renderLinkConvertTable();
+            setLinkConvertStatusText(`转换进度 ${i + 1}/${linkConvertItems.length}`, '#007bff');
+
+            const result = await ipcRenderer.invoke('resolve-shortlink', row.shortUrl);
+            const finalUrl = result?.finalUrl || '';
+            const base = extractBaseProfileUrl(finalUrl);
+
+            if (result && result.success && base) {
+                row.status = '成功';
+                row.longUrl = base;
+            } else if (result && result.success) {
+                row.status = '未识别';
+                row.longUrl = base || finalUrl;
+            } else {
+                row.status = `失败: ${result?.message || '未知错误'}`;
+                row.longUrl = base || finalUrl;
+            }
+
+            renderLinkConvertTable();
+            if (typeof sleep === 'function') {
+                await sleep(300);
+            }
+        }
+
+        if (!linkConvertShouldStop) {
+            setLinkConvertStatusText('转换完成', '#28a745');
+            showToast('success', '完成', '短链接转换已完成');
+        }
+    } finally {
+        isConvertingLinks = false;
+        linkConvertShouldStop = false;
+        setLinkConvertButtonsDisabled(false);
+        updateLinkConvertStartButton();
+        if (startBtn) startBtn.disabled = false;
+    }
+}
+
+function initLinkConvertPage() {
+    const excelBtn = document.getElementById('link-excel-import-btn');
+    if (excelBtn) excelBtn.addEventListener('click', importShortlinksFromExcel);
+
+    const textBtn = document.getElementById('link-text-import-btn');
+    if (textBtn) textBtn.addEventListener('click', importShortlinksFromTextInput);
+
+    const txtBtn = document.getElementById('link-txt-import-btn');
+    if (txtBtn) txtBtn.addEventListener('click', importShortlinksFromTxtFile);
+
+    const startBtn = document.getElementById('start-convert-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', startConvertShortlinks);
+    }
+
+    const exportBtn = document.getElementById('link-export-data-btn');
+    if (exportBtn) exportBtn.addEventListener('click', exportLinkConvertData);
+
+    updateLinkConvertStartButton();
+    renderLinkConvertTable();
 }
 
 // ==================== 账号管理页面 ====================
@@ -252,6 +647,11 @@ function renderAccountTable() {
             showAccountContextMenu(e.clientX, e.clientY, index);
         });
     });
+
+    // 同步更新邀约页账号下拉
+    if (typeof renderInviteAccountSelect === 'function') {
+        renderInviteAccountSelect();
+    }
 }
 
 function showAccountContextMenu(x, y, index) {
@@ -2016,6 +2416,449 @@ function initBloggerListPage() {
     renderBloggerTable();
 }
 
+// ==================== 达人邀约功能 ====================
+
+let inviteItems = [];
+let capturedInviteTemplate = null;
+let isInviting = false;
+let inviteShouldStop = false;
+let inviteIsPaused = false;
+
+function getValidInviteAccounts() {
+    return accounts.filter(acc => acc.status === '正常');
+}
+
+function renderInviteAccountSelect() {
+    const selectEl = document.getElementById('invite-account-select');
+    if (!selectEl) return;
+
+    const validAccounts = getValidInviteAccounts();
+    if (validAccounts.length === 0) {
+        selectEl.innerHTML = '<option value="">暂无可用账号</option>';
+        updateInviteButtons();
+        return;
+    }
+
+    const prev = selectEl.value;
+    selectEl.innerHTML = validAccounts.map((acc, idx) => {
+        const label = `${acc.remark || `账号${idx + 1}`} ${acc.nickName ? `(${acc.nickName})` : ''}`.trim();
+        return `<option value="${idx}">${label}</option>`;
+    }).join('');
+
+    if (prev !== '' && Number.isFinite(Number(prev)) && Number(prev) < validAccounts.length) {
+        selectEl.value = prev;
+    }
+
+    updateInviteButtons();
+}
+
+function updateInviteButtons() {
+    const firstBtn = document.getElementById('first-invite-btn');
+    const startBtn = document.getElementById('start-invite-btn');
+    const pauseBtn = document.getElementById('pause-invite-btn');
+    const selectEl = document.getElementById('invite-account-select');
+
+    if (!firstBtn || !startBtn || !selectEl || !pauseBtn) return;
+
+    const hasAccount = getValidInviteAccounts().length > 0 && selectEl.value !== '';
+    const hasData = inviteItems.length > 0;
+
+    const startSvg = startBtn.querySelector('svg')?.outerHTML || '';
+    const pauseSvg = pauseBtn.querySelector('svg')?.outerHTML || '';
+
+    if (isInviting) {
+        startBtn.innerHTML = `${startSvg}停止邀约`;
+        pauseBtn.disabled = false;
+        pauseBtn.innerHTML = `${pauseSvg}${inviteIsPaused ? '继续邀约' : '暂停邀约'}`;
+    } else {
+        startBtn.innerHTML = `${startSvg}启动邀约`;
+        pauseBtn.innerHTML = `${pauseSvg}暂停邀约`;
+        pauseBtn.disabled = true;
+    }
+
+    firstBtn.disabled = !hasAccount || !hasData || isInviting;
+    // startBtn：未运行时用于“启动”，运行中用于“停止”
+    startBtn.disabled = (!isInviting && (!hasAccount || !hasData || !capturedInviteTemplate));
+}
+
+function renderInviteTable() {
+    const tbody = document.getElementById('invite-tbody');
+    if (!tbody) return;
+
+    if (inviteItems.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 40px; color: #999;">暂无数据，请先导入Excel</td>
+            </tr>
+        `;
+        updateInviteButtons();
+        return;
+    }
+
+    tbody.innerHTML = inviteItems.map((item) => `
+        <tr>
+            <td>${item.invite_status || '未邀约'}</td>
+            <td title="${item['账号昵称'] || ''}">${item['账号昵称'] || ''}</td>
+            <td title="${item['主页url'] || ''}" style="word-break: break-all; max-width: 340px;">${item['主页url'] || ''}</td>
+            <td>${item['合作类型'] || ''}</td>
+            <td title="${item['产品名称'] || ''}" style="max-width: 180px;">${item['产品名称'] || ''}</td>
+            <td title="${item['合作内容'] || ''}" style="max-width: 360px;">${item['合作内容'] || ''}</td>
+            <td title="${item['联系方式'] || ''}" style="max-width: 160px;">${item['联系方式'] || ''}</td>
+            <td>${item.invite_time || ''}</td>
+        </tr>
+    `).join('');
+
+    updateInviteButtons();
+}
+
+function setInviteStatusText(text, color = '#666') {
+    const el = document.getElementById('invite-status');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = color;
+}
+
+function extractKolIdFromUrl(url) {
+    if (!url) return '';
+    const m = String(url).trim().match(/([0-9a-f]{24})/i);
+    return m ? m[1] : '';
+}
+
+function normalizeInviteOpenUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+
+    if (raw.startsWith('https://pgy.xiaohongshu.com/')) {
+        return raw;
+    }
+
+    const kolId = extractKolIdFromUrl(raw);
+    if (kolId) {
+        return `https://pgy.xiaohongshu.com/solar/pre-trade/blogger-detail/${kolId}`;
+    }
+
+    return raw;
+}
+
+function mapInviteType(cooperateType) {
+    const t = String(cooperateType || '').trim();
+    if (t === '视频') return 2;
+    return 1;
+}
+
+async function importInviteFromExcel() {
+    try {
+        const filePath = await ipcRenderer.invoke('select-file', [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }]);
+        if (!filePath) return;
+
+        const XLSX = require('xlsx');
+        const workbook = XLSX.readFile(filePath);
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        if (!rows || rows.length === 0) {
+            showToast('warning', '提示', 'Excel无有效数据');
+            return;
+        }
+
+        inviteItems = rows.map(r => ({
+            invite_status: '未邀约',
+            invite_time: '',
+            '账号昵称': r['账号昵称'] ?? '',
+            '主页url': r['主页url'] ?? '',
+            '合作类型': r['合作类型'] ?? '',
+            '产品名称': r['产品名称'] ?? '',
+            '合作内容': r['合作内容'] ?? '',
+            '联系方式': r['联系方式'] ?? ''
+        }));
+
+        capturedInviteTemplate = null;
+        setInviteStatusText(`已导入 ${inviteItems.length} 条，等待首次邀约获取模板...`, '#666');
+        renderInviteTable();
+        showToast('success', '导入成功', `成功导入 ${inviteItems.length} 条`);
+    } catch (e) {
+        showToast('error', '导入失败', e.message);
+    }
+}
+
+async function exportInviteTemplate() {
+    try {
+        const filePath = await ipcRenderer.invoke('select-save-path', {
+            title: '导出邀约模板',
+            defaultPath: `达人邀约模板_${new Date().toISOString().slice(0, 10)}.xlsx`,
+            filters: [{ name: 'Excel Files', extensions: ['xlsx'] }]
+        });
+        if (!filePath) return;
+
+        const XLSX = require('xlsx');
+        const data = [[
+            '账号昵称',
+            '主页url',
+            '合作类型',
+            '产品名称',
+            '合作内容',
+            '联系方式'
+        ], [
+            '示例昵称',
+            'https://www.xiaohongshu.com/user/profile/xxxxxxxxxxxxxxxxxxxxxxxx',
+            '图文/视频',
+            '示例产品',
+            '示例合作内容：这里填写邀约文案',
+            '示例联系方式：微信/手机号'
+        ]];
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, '模板');
+        XLSX.writeFile(wb, filePath);
+
+        showToast('success', '导出成功', `模板已导出: ${filePath}`);
+    } catch (e) {
+        showToast('error', '导出失败', e.message);
+    }
+}
+
+async function exportInviteData() {
+    try {
+        if (inviteItems.length === 0) {
+            showToast('warning', '提示', '没有可导出的数据');
+            return;
+        }
+
+        const filePath = await ipcRenderer.invoke('select-save-path', {
+            title: '导出邀约数据',
+            defaultPath: `达人邀约数据_${new Date().toISOString().slice(0, 10)}.xlsx`,
+            filters: [{ name: 'Excel Files', extensions: ['xlsx'] }]
+        });
+        if (!filePath) return;
+
+        const XLSX = require('xlsx');
+        const data = [[
+            '邀约状态',
+            '账号昵称',
+            '主页url',
+            '合作类型',
+            '产品名称',
+            '合作内容',
+            '联系方式',
+            '邀约时间'
+        ]];
+
+        inviteItems.forEach(item => {
+            data.push([
+                item.invite_status || '未邀约',
+                item['账号昵称'] || '',
+                item['主页url'] || '',
+                item['合作类型'] || '',
+                item['产品名称'] || '',
+                item['合作内容'] || '',
+                item['联系方式'] || '',
+                item.invite_time || ''
+            ]);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, '邀约数据');
+        XLSX.writeFile(wb, filePath);
+
+        showToast('success', '导出成功', `数据已导出: ${filePath}`);
+    } catch (e) {
+        showToast('error', '导出失败', e.message);
+    }
+}
+
+function getSelectedInviteAccount() {
+    const validAccounts = getValidInviteAccounts();
+    const selectEl = document.getElementById('invite-account-select');
+    if (!selectEl) return null;
+    const idx = Number(selectEl.value);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= validAccounts.length) return null;
+    return validAccounts[idx];
+}
+
+async function firstInvite() {
+    if (inviteItems.length === 0) {
+        showToast('warning', '提示', '请先导入Excel');
+        return;
+    }
+
+    const account = getSelectedInviteAccount();
+    if (!account) {
+        showToast('error', '错误', '请选择可用账号');
+        return;
+    }
+
+    const first = inviteItems[0];
+    const openUrl = normalizeInviteOpenUrl(first['主页url']);
+    if (!openUrl) {
+        showToast('error', '错误', '第一行主页url为空');
+        return;
+    }
+
+    capturedInviteTemplate = null;
+    setInviteStatusText('请在弹窗浏览器中完成一次邀约，系统将自动捕获请求...', '#666');
+    updateInviteButtons();
+
+    const result = await ipcRenderer.invoke('open-invite-browser', openUrl, account.cookies);
+    if (!result.success) {
+        showToast('error', '错误', result.message || '打开邀约窗口失败');
+        setInviteStatusText(result.message || '打开邀约窗口失败', '#dc3545');
+        return;
+    }
+
+    showToast('info', '提示', '邀约窗口已打开，请完成一次邀约操作');
+}
+
+ipcRenderer.on('invite-request-captured', async () => {
+    const template = await ipcRenderer.invoke('get-captured-invite-request');
+    if (!template || !template.body || !template.headers) {
+        setInviteStatusText('捕获失败：未获取到有效请求模板', '#dc3545');
+        return;
+    }
+
+    capturedInviteTemplate = template;
+    if (inviteItems.length > 0) {
+        inviteItems[0].invite_status = '邀约成功';
+        inviteItems[0].invite_time = new Date().toLocaleString('zh-CN');
+    }
+    renderInviteTable();
+    setInviteStatusText('已捕获邀约模板，可以启动邀约', '#28a745');
+    showToast('success', '捕获成功', '已捕获邀约请求模板');
+});
+
+async function startInvite() {
+    // 运行中：点击则停止
+    if (isInviting) {
+        inviteShouldStop = true;
+        inviteIsPaused = false;
+        setInviteStatusText('正在停止邀约...', '#dc3545');
+        updateInviteButtons();
+        return;
+    }
+
+    if (!capturedInviteTemplate) {
+        showToast('warning', '提示', '请先进行首次邀约获取模板');
+        return;
+    }
+
+    if (inviteItems.length <= 1) {
+        showToast('info', '提示', '没有需要邀约的后续数据');
+        return;
+    }
+
+    const account = getSelectedInviteAccount();
+    if (!account) {
+        showToast('error', '错误', '请选择可用账号');
+        return;
+    }
+
+    inviteShouldStop = false;
+    inviteIsPaused = false;
+    isInviting = true;
+    updateInviteButtons();
+
+    try {
+        setInviteStatusText(`开始邀约，共 ${inviteItems.length - 1} 条...`, '#007bff');
+
+        for (let i = 1; i < inviteItems.length; i++) {
+            if (inviteShouldStop) {
+                setInviteStatusText('已停止邀约', '#dc3545');
+                break;
+            }
+
+            while (inviteIsPaused && !inviteShouldStop) {
+                setInviteStatusText('已暂停邀约', '#666');
+                await sleep(200);
+            }
+            if (inviteShouldStop) {
+                setInviteStatusText('已停止邀约', '#dc3545');
+                break;
+            }
+
+            const row = inviteItems[i];
+            const kolId = extractKolIdFromUrl(row['主页url']);
+            if (!kolId) {
+                row.invite_status = '失败: 无法解析kolId';
+                renderInviteTable();
+                continue;
+            }
+
+            row.invite_status = '邀约中...';
+            renderInviteTable();
+
+            const body = { ...capturedInviteTemplate.body };
+            body.kolId = kolId;
+            body.inviteType = mapInviteType(row['合作类型']);
+            body.productName = row['产品名称'] || body.productName;
+            body.inviteContent = row['合作内容'] || body.inviteContent;
+            body.contactInfo = row['联系方式'] || body.contactInfo;
+
+            const headers = { ...capturedInviteTemplate.headers };
+            headers['Cookie'] = account.cookies;
+            headers['cookie'] = account.cookies;
+
+            const reqPayload = {
+                url: capturedInviteTemplate.url,
+                headers,
+                body
+            };
+
+            const result = await ipcRenderer.invoke('send-invite-request', reqPayload);
+            if (result && result.success) {
+                row.invite_status = '邀约成功';
+                row.invite_time = new Date().toLocaleString('zh-CN');
+            } else {
+                row.invite_status = `失败: ${result?.message || '未知错误'}`;
+                row.invite_time = '';
+            }
+            renderInviteTable();
+
+            setInviteStatusText(`邀约进度 ${i}/${inviteItems.length - 1}`, '#007bff');
+            await sleep(2000);
+        }
+
+        if (!inviteShouldStop) {
+            setInviteStatusText('邀约完成', '#28a745');
+            showToast('success', '完成', '邀约任务已完成');
+        }
+    } finally {
+        isInviting = false;
+        inviteIsPaused = false;
+        updateInviteButtons();
+    }
+}
+
+function togglePauseInvite() {
+    if (!isInviting) return;
+    inviteIsPaused = !inviteIsPaused;
+    updateInviteButtons();
+}
+
+function initInvitePage() {
+    const importBtn = document.getElementById('invite-excel-import-btn');
+    const exportTemplateBtn = document.getElementById('invite-export-template-btn');
+    const exportDataBtn = document.getElementById('invite-export-data-btn');
+    const selectEl = document.getElementById('invite-account-select');
+    const firstBtn = document.getElementById('first-invite-btn');
+    const pauseBtn = document.getElementById('pause-invite-btn');
+    const startBtn = document.getElementById('start-invite-btn');
+
+    if (importBtn) importBtn.addEventListener('click', importInviteFromExcel);
+    if (exportTemplateBtn) exportTemplateBtn.addEventListener('click', exportInviteTemplate);
+    if (exportDataBtn) exportDataBtn.addEventListener('click', exportInviteData);
+    if (selectEl) selectEl.addEventListener('change', updateInviteButtons);
+    if (firstBtn) firstBtn.addEventListener('click', firstInvite);
+    if (pauseBtn) pauseBtn.addEventListener('click', togglePauseInvite);
+    if (startBtn) startBtn.addEventListener('click', startInvite);
+
+    renderInviteAccountSelect();
+    renderInviteTable();
+    setInviteStatusText('请导入Excel并选择账号', '#666');
+    updateInviteButtons();
+}
+
 // ==================== 启动免责声明 ====================
 
 function showDisclaimerModal() {
@@ -2236,6 +3079,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     initAccountPage();
     initSettingsPage();
     initCollectPage();
+    initLinkConvertPage();
     initBloggerListPage();
+    initInvitePage();
     initLicensePage();
 });
