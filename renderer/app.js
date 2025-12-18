@@ -1395,6 +1395,13 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function formatWanW(value) {
+    if (value === '' || value === null || value === undefined) return '';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '';
+    return (num / 10000).toFixed(2) + 'w';
+}
+
 async function waitWhilePaused() {
     while (isPaused && isCollecting) {
         await sleep(100);
@@ -1952,7 +1959,7 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
         const baseHeaders = [
             '博主主页', '达人 ID', '蒲公英主页', '小红书主页',
             '昵称', '健康等级', '性别', '小红书号', '地理位置',
-            '粉丝数量', '获赞与收藏', '合作报价-图文笔记',
+            '粉丝数量', '粉丝数量（万）', '获赞与收藏', '获赞与收藏（万）', '合作报价-图文笔记',
             '合作报价-视频笔记', '合作报价-最低报价',
             '签约机构', '内容标签', '合作行业',
             // 数据概览字段
@@ -2024,7 +2031,9 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
                     d.redId || '',
                     d.location || '',
                     d.fansCount || 0,
+                    formatWanW(d.fansCount),
                     d.likeCollectCountInfo || 0,
+                    formatWanW(d.likeCollectCountInfo),
                     d.picturePrice || 0,
                     d.videoPrice || 0,
                     d.lowerPrice || 0,
