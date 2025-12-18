@@ -347,6 +347,12 @@ async function getDataSummary(userId, cookies) {
     }
 }
 
+function formatPeerCompare(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num === 0) return '';
+    return `优于${num}%的同行`;
+}
+
 async function fetchDataSummary(userId, business, cookies) {
     return withRetry(async () => {
         const url = `https://pgy.xiaohongshu.com/api/pgy/kol/data/data_summary?userId=${userId}&business=${business}`;
@@ -376,6 +382,9 @@ async function fetchDataSummary(userId, business, cookies) {
                                 daily_mAccumImpNum: rawData.mAccumImpNum || 0,
                                 daily_mValidRawReadFeedNum: rawData.mValidRawReadFeedNum || 0,
                                 daily_mEngagementNum: rawData.mEngagementNum || 0,
+                                daily_mAccumImpCompare: formatPeerCompare(rawData.mAccumImpCompare),
+                                daily_mValidRawReadFeedCompare: formatPeerCompare(rawData.mValidRawReadFeedCompare),
+                                daily_mEngagementNumCompare: formatPeerCompare(rawData.mEngagementNumCompare),
                             }
                         };
                     } else {
@@ -388,8 +397,12 @@ async function fetchDataSummary(userId, business, cookies) {
                                 coop_mEngagementNum: rawData.mEngagementNum || 0,
                                 estimatePictureCpm: rawData.estimatePictureCpm || 0,
                                 estimateVideoCpm: rawData.estimateVideoCpm || 0,
+                                estimatePictureCpmCompare: formatPeerCompare(rawData.estimatePictureCpmCompare),
+                                estimateVideoCpmCompare: formatPeerCompare(rawData.estimateVideoCpmCompare),
                                 picReadCost: rawData.picReadCost || 0,
                                 videoReadCostV2: rawData.videoReadCostV2 || 0,
+                                picReadCostCompare: formatPeerCompare(rawData.picReadCostCompare),
+                                videoReadCostCompare: formatPeerCompare(rawData.videoReadCostCompare),
                                 estimatePictureEngageCost: rawData.estimatePictureEngageCost || 0,
                                 estimateVideoEngageCost: rawData.estimateVideoEngageCost || 0,
                                 estimatePictureCpuv: rawData.estimatePictureCpuv || 0,
