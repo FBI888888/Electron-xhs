@@ -2838,7 +2838,6 @@ async function startInvite() {
 
             while (inviteIsPaused && !inviteShouldStop) {
                 setInviteStatusText('已暂停邀约', '#666');
-                await sleep(200);
             }
             if (inviteShouldStop) {
                 setInviteStatusText('已停止邀约', '#dc3545');
@@ -2884,7 +2883,6 @@ async function startInvite() {
             renderInviteTable();
 
             setInviteStatusText(`邀约进度 ${i}/${inviteItems.length - 1}`, '#007bff');
-            await sleep(2000);
         }
 
         if (!inviteShouldStop) {
