@@ -707,10 +707,14 @@ function showAccountContextMenu(x, y, index) {
     // 移除已有的菜单
     document.querySelectorAll('.context-menu').forEach(m => m.remove());
     
+    const account = accounts[index];
+    const hasCredentials = !!(account.email && account.password);
+    
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.innerHTML = `
         <div class="context-menu-item" data-action="check">检查账号</div>
+        <div class="context-menu-item ${hasCredentials ? '' : 'disabled'}" data-action="refresh" ${hasCredentials ? '' : 'title="该账号没有保存账号密码"'}>更新Cookies</div>
         <div class="context-menu-item" data-action="edit">修改账号</div>
         <div class="context-menu-item" data-action="delete">删除账号</div>
     `;
@@ -727,6 +731,9 @@ function showAccountContextMenu(x, y, index) {
             switch (action) {
                 case 'check':
                     checkSingleAccount(index);
+                    break;
+                case 'refresh':
+                    refreshAccountCookies(index);
                     break;
                 case 'edit':
                     editAccount(index);
@@ -745,6 +752,42 @@ function showAccountContextMenu(x, y, index) {
             document.removeEventListener('click', handler);
         });
     }, 0);
+}
+
+// 更新账号Cookies - 使用保存的账号密码重新登录
+async function refreshAccountCookies(index) {
+    const account = accounts[index];
+    
+    if (!account.email || !account.password) {
+        showToast('warning', '无法更新', '该账号没有保存账号密码，无法自动更新Cookies');
+        return;
+    }
+    
+    showToast('info', '更新中', `正在更新账号 "${account.remark}" 的Cookies...`);
+    
+    const result = await ipcRenderer.invoke('refresh-account-cookies', account.email, account.password, index);
+    
+    if (result.success) {
+        // 验证获取到的cookies
+        const checkResult = await checkAccountStatus(result.cookies);
+        
+        accounts[index].cookies = result.cookies;
+        accounts[index].status = checkResult.success ? '正常' : '失效';
+        if (checkResult.success && checkResult.nickName) {
+            accounts[index].nickName = checkResult.nickName;
+        }
+        
+        await saveJsonData(ACCOUNTS_FILE, accounts);
+        renderAccountTable();
+        
+        if (checkResult.success) {
+            showToast('success', '更新成功', `账号 "${account.remark}" Cookies已更新`);
+        } else {
+            showToast('warning', '更新完成', `Cookies已更新，但验证失败: ${checkResult.message}`);
+        }
+    } else {
+        showToast('error', '更新失败', result.message);
+    }
 }
 
 async function checkAccountStatus(cookies) {
@@ -955,9 +998,114 @@ ipcRenderer.on('login-cookies-captured', (event, cookies) => {
 function initAccountPage() {
     document.getElementById('add-account-btn').addEventListener('click', addAccount);
     document.getElementById('direct-login-btn').addEventListener('click', directLogin);
+    document.getElementById('password-login-btn').addEventListener('click', passwordLogin);
     document.getElementById('check-all-btn').addEventListener('click', checkAllAccounts);
     loadAccounts();
 }
+
+// 密码登录 - 弹窗输入账号密码
+async function passwordLogin() {
+    const content = `
+        <div class="form-row">
+            <label class="form-label">邮箱账号:</label>
+            <input type="text" class="input" id="login-email" placeholder="请输入邮箱" style="flex: 1;">
+        </div>
+        <div class="form-row">
+            <label class="form-label">密码:</label>
+            <input type="password" class="input" id="login-password" placeholder="请输入密码" style="flex: 1;">
+        </div>
+        <div class="form-row">
+            <label class="form-label">备注名:</label>
+            <input type="text" class="input" id="login-remark" placeholder="请输入备注名" style="flex: 1;">
+        </div>
+    `;
+    
+    const result = await showModal('密码登录', content, [
+        { text: '取消', value: false },
+        { text: '登录', value: true, primary: true }
+    ], () => {
+        return {
+            email: document.getElementById('login-email')?.value.trim() || '',
+            password: document.getElementById('login-password')?.value || '',
+            remark: document.getElementById('login-remark')?.value.trim() || ''
+        };
+    });
+    
+    if (result && result.confirmed && result.data) {
+        const { email, password, remark } = result.data;
+        
+        if (!email) {
+            showToast('warning', '提示', '请输入邮箱账号');
+            return;
+        }
+        
+        if (!password) {
+            showToast('warning', '提示', '请输入密码');
+            return;
+        }
+        
+        if (!remark) {
+            showToast('warning', '提示', '请输入备注名');
+            return;
+        }
+        
+        showToast('info', '登录中', '正在后台自动登录，请稍候...');
+        
+        const loginResult = await ipcRenderer.invoke('password-login-pgy', email, password);
+        
+        if (loginResult.success) {
+            // 验证获取到的cookies
+            const checkResult = await checkAccountStatus(loginResult.cookies);
+            
+            if (checkResult.success) {
+                // 添加账号，保存账号密码
+                accounts.push({
+                    remark,
+                    nickName: checkResult.nickName,
+                    status: '正常',
+                    cookies: loginResult.cookies,
+                    email: email,
+                    password: password
+                });
+                
+                await saveJsonData(ACCOUNTS_FILE, accounts);
+                renderAccountTable();
+                
+                showToast('success', '登录成功', `账号 "${remark}" 已添加`);
+            } else {
+                showToast('error', '验证失败', checkResult.message);
+            }
+        } else {
+            showToast('error', '登录失败', loginResult.message);
+        }
+    }
+}
+
+// 监听密码登录结果（用于更新cookies）
+ipcRenderer.on('password-login-cookies-captured', async (event, data) => {
+    const { cookies, email, accountIndex } = data;
+    
+    if (accountIndex !== undefined && accountIndex >= 0 && accountIndex < accounts.length) {
+        // 更新现有账号的cookies
+        const account = accounts[accountIndex];
+        const checkResult = await checkAccountStatus(cookies);
+        
+        accounts[accountIndex].cookies = cookies;
+        accounts[accountIndex].status = checkResult.success ? '正常' : '失效';
+        if (checkResult.success && checkResult.nickName) {
+            accounts[accountIndex].nickName = checkResult.nickName;
+        }
+        
+        await saveJsonData(ACCOUNTS_FILE, accounts);
+        renderAccountTable();
+        
+        if (checkResult.success) {
+            showToast('success', '更新成功', `账号 "${account.remark}" Cookies已更新`);
+        } else {
+            showToast('warning', '更新完成', `Cookies已更新，但验证失败: ${checkResult.message}`);
+        }
+    }
+});
 
 // ==================== 采集设置页面 ====================
 
@@ -2746,6 +2894,59 @@ function getSelectedInviteAccount() {
     return validAccounts[idx];
 }
 
+// 获取当前选中账号在accounts数组中的真实索引
+function getSelectedInviteAccountIndex() {
+    const validAccounts = getValidInviteAccounts();
+    const selectEl = document.getElementById('invite-account-select');
+    if (!selectEl) return -1;
+    const idx = Number(selectEl.value);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= validAccounts.length) return -1;
+    const selectedAccount = validAccounts[idx];
+    // 在全局accounts中找到真实索引
+    return accounts.findIndex(acc => acc === selectedAccount);
+}
+
+// 自动更新当前邀约账号的Cookies（使用保存的账号密码）
+async function autoRefreshInviteAccountCookies() {
+    const account = getSelectedInviteAccount();
+    const accountIndex = getSelectedInviteAccountIndex();
+    
+    if (!account || accountIndex < 0) {
+        return { success: false, message: '无法获取当前账号' };
+    }
+    
+    if (!account.email || !account.password) {
+        return { success: false, message: '该账号没有保存账号密码，无法自动更新Cookies', noCredentials: true };
+    }
+    
+    setInviteStatusText(`正在自动更新账号 "${account.remark}" 的Cookies...`, '#007bff');
+    
+    const result = await ipcRenderer.invoke('refresh-account-cookies', account.email, account.password, accountIndex);
+    
+    if (result.success) {
+        // 验证获取到的cookies
+        const checkResult = await checkAccountStatus(result.cookies);
+        
+        accounts[accountIndex].cookies = result.cookies;
+        accounts[accountIndex].status = checkResult.success ? '正常' : '失效';
+        if (checkResult.success && checkResult.nickName) {
+            accounts[accountIndex].nickName = checkResult.nickName;
+        }
+        
+        await saveJsonData(ACCOUNTS_FILE, accounts);
+        renderAccountTable();
+        
+        if (checkResult.success) {
+            showToast('success', 'Cookies已更新', `账号 "${account.remark}" Cookies已自动更新`);
+            return { success: true };
+        } else {
+            return { success: false, message: `Cookies更新后验证失败: ${checkResult.message}` };
+        }
+    } else {
+        return { success: false, message: result.message };
+    }
+}
+
 async function firstInvite() {
     if (inviteItems.length === 0) {
         showToast('warning', '提示', '请先导入Excel');
@@ -2796,6 +2997,40 @@ ipcRenderer.on('invite-request-captured', async () => {
     showToast('success', '捕获成功', '已捕获邀约请求模板');
 });
 
+// 获取当前选中账号的最新cookies（从accounts数组中实时获取）
+function getLatestAccountCookies() {
+    const validAccounts = getValidInviteAccounts();
+    const selectEl = document.getElementById('invite-account-select');
+    if (!selectEl) return null;
+    const idx = Number(selectEl.value);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= validAccounts.length) return null;
+    return validAccounts[idx].cookies;
+}
+
+// 显示频次限制弹窗，等待用户更新session后继续
+async function showFrequencyLimitModal() {
+    return showModal('邀约频次达到上限', `
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+            <p style="font-size: 16px; color: #333; margin-bottom: 15px;">
+                访问频次异常，请勿频繁操作
+            </p>
+            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                请前往<span style="color: #007bff; font-weight: 600;">账号管理</span>页面重新登录账号更新Session
+            </p>
+            <p style="font-size: 14px; color: #999;">
+                更新完成后点击"继续邀约"按钮继续任务
+            </p>
+        </div>
+    `, [
+        { text: '停止邀约', value: false },
+        { text: '继续邀约', value: true, primary: true }
+    ]);
+}
+
+// 当前邀约进度索引（用于暂停后继续）
+let inviteCurrentIndex = 1;
+
 async function startInvite() {
     // 运行中：点击则停止
     if (isInviting) {
@@ -2830,17 +3065,20 @@ async function startInvite() {
     try {
         setInviteStatusText(`开始邀约，共 ${inviteItems.length - 1} 条...`, '#007bff');
 
-        for (let i = 1; i < inviteItems.length; i++) {
+        for (let i = inviteCurrentIndex; i < inviteItems.length; i++) {
             if (inviteShouldStop) {
                 setInviteStatusText('已停止邀约', '#dc3545');
+                inviteCurrentIndex = 1; // 重置进度
                 break;
             }
 
             while (inviteIsPaused && !inviteShouldStop) {
                 setInviteStatusText('已暂停邀约', '#666');
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
             if (inviteShouldStop) {
                 setInviteStatusText('已停止邀约', '#dc3545');
+                inviteCurrentIndex = 1; // 重置进度
                 break;
             }
 
@@ -2855,6 +3093,14 @@ async function startInvite() {
             row.invite_status = '邀约中...';
             renderInviteTable();
 
+            // 每次请求都从账号管理中获取最新的cookies
+            const latestCookies = getLatestAccountCookies();
+            if (!latestCookies) {
+                row.invite_status = '失败: 无法获取账号cookies';
+                renderInviteTable();
+                continue;
+            }
+
             const body = { ...capturedInviteTemplate.body };
             body.kolId = kolId;
             body.inviteType = mapInviteType(row['合作类型']);
@@ -2863,8 +3109,8 @@ async function startInvite() {
             body.contactInfo = row['联系方式'] || body.contactInfo;
 
             const headers = { ...capturedInviteTemplate.headers };
-            headers['Cookie'] = account.cookies;
-            headers['cookie'] = account.cookies;
+            headers['Cookie'] = latestCookies;
+            headers['cookie'] = latestCookies;
 
             const reqPayload = {
                 url: capturedInviteTemplate.url,
@@ -2872,10 +3118,149 @@ async function startInvite() {
                 body
             };
 
-            const result = await ipcRenderer.invoke('send-invite-request', reqPayload);
+            // 发送邀约请求，带重试和自动更新cookies机制
+            let result = await ipcRenderer.invoke('send-invite-request', reqPayload);
+            let retryCount = 0;
+            let cookiesRefreshed = false;
+            let cookiesRefreshFailedImmediately = false;
+            
+            // 如果失败，进行重试和自动更新cookies流程
+            while (!result.success && !inviteShouldStop) {
+                // 检查是否是频次限制错误 (code: 300013)
+                const isFrequencyLimit = result && result.data && result.data.code === 300013;
+                
+                if (retryCount === 0) {
+                    // 第一次失败，重试一次
+                    retryCount++;
+                    row.invite_status = '重试中...';
+                    renderInviteTable();
+                    setInviteStatusText(`邀约失败，正在重试 (${i}/${inviteItems.length - 1})`, '#ff9800');
+                    
+                    await new Promise(r => setTimeout(r, 1000)); // 等待1秒后重试
+                    
+                    // 重新获取最新cookies
+                    const retryCookies = getLatestAccountCookies();
+                    if (retryCookies) {
+                        reqPayload.headers['Cookie'] = retryCookies;
+                        reqPayload.headers['cookie'] = retryCookies;
+                    }
+                    
+                    result = await ipcRenderer.invoke('send-invite-request', reqPayload);
+                    
+                    if (result.success) break; // 重试成功，跳出循环
+                    
+                } else if (!cookiesRefreshed) {
+                    // 重试后仍然失败，可能是cookies被风控，尝试自动更新cookies
+                    const account = getSelectedInviteAccount();
+                    
+                    if (!account.email || !account.password) {
+                        // 没有保存账号密码，直接停止线程
+                        row.invite_status = '失败: 账号被风控，无密码无法自动更新';
+                        renderInviteTable();
+                        setInviteStatusText('邀约已停止：账号被风控，该账号没有保存密码无法自动更新Cookies', '#dc3545');
+                        showToast('error', '邀约已停止', '账号被风控，该账号没有保存密码，无法自动更新Cookies');
+                        inviteShouldStop = true;
+                        break;
+                    }
+                    
+                    // 自动更新cookies
+                    row.invite_status = '更新Cookies中...';
+                    renderInviteTable();
+                    
+                    const refreshResult = await autoRefreshInviteAccountCookies();
+                    cookiesRefreshed = true;
+                    
+                    if (!refreshResult.success) {
+                        // cookies更新失败，停止线程
+                        row.invite_status = `失败: Cookies更新失败 - ${refreshResult.message}`;
+                        renderInviteTable();
+                        setInviteStatusText(`邀约已停止：Cookies更新失败 - ${refreshResult.message}`, '#dc3545');
+                        showToast('error', '邀约已停止', `Cookies更新失败: ${refreshResult.message}`);
+                        inviteShouldStop = true;
+                        break;
+                    }
+                    
+                    // cookies更新成功，使用新cookies重试
+                    const newCookies = getLatestAccountCookies();
+                    if (newCookies) {
+                        reqPayload.headers['Cookie'] = newCookies;
+                        reqPayload.headers['cookie'] = newCookies;
+                    }
+                    
+                    setInviteStatusText(`Cookies已更新，正在重试邀约 (${i}/${inviteItems.length - 1})`, '#007bff');
+                    result = await ipcRenderer.invoke('send-invite-request', reqPayload);
+                    
+                    if (!result.success) {
+                        // 更新cookies后立即失败，停止线程
+                        cookiesRefreshFailedImmediately = true;
+                        row.invite_status = `失败: 更新Cookies后仍失败 - ${result?.message || '未知错误'}`;
+                        renderInviteTable();
+                        setInviteStatusText('邀约已停止：更新Cookies后仍然失败，可能账号已被封禁', '#dc3545');
+                        showToast('error', '邀约已停止', '更新Cookies后仍然失败，可能账号已被封禁');
+                        inviteShouldStop = true;
+                        break;
+                    }
+                    
+                } else {
+                    // cookies已经更新过一次，但后续又失败了（使用一段时间后再次风控）
+                    // 再次尝试更新cookies
+                    const account = getSelectedInviteAccount();
+                    
+                    if (!account.email || !account.password) {
+                        row.invite_status = '失败: 再次风控，无密码无法更新';
+                        renderInviteTable();
+                        setInviteStatusText('邀约已停止：再次被风控，该账号没有保存密码', '#dc3545');
+                        showToast('error', '邀约已停止', '再次被风控，该账号没有保存密码');
+                        inviteShouldStop = true;
+                        break;
+                    }
+                    
+                    row.invite_status = '再次更新Cookies中...';
+                    renderInviteTable();
+                    
+                    const refreshResult = await autoRefreshInviteAccountCookies();
+                    
+                    if (!refreshResult.success) {
+                        row.invite_status = `失败: Cookies更新失败 - ${refreshResult.message}`;
+                        renderInviteTable();
+                        setInviteStatusText(`邀约已停止：Cookies更新失败`, '#dc3545');
+                        showToast('error', '邀约已停止', `Cookies更新失败: ${refreshResult.message}`);
+                        inviteShouldStop = true;
+                        break;
+                    }
+                    
+                    // 使用新cookies重试
+                    const newCookies = getLatestAccountCookies();
+                    if (newCookies) {
+                        reqPayload.headers['Cookie'] = newCookies;
+                        reqPayload.headers['cookie'] = newCookies;
+                    }
+                    
+                    setInviteStatusText(`Cookies已再次更新，正在重试邀约 (${i}/${inviteItems.length - 1})`, '#007bff');
+                    result = await ipcRenderer.invoke('send-invite-request', reqPayload);
+                    
+                    if (!result.success) {
+                        // 再次更新后立即失败，停止
+                        row.invite_status = `失败: 再次更新Cookies后仍失败`;
+                        renderInviteTable();
+                        setInviteStatusText('邀约已停止：再次更新Cookies后仍然失败', '#dc3545');
+                        showToast('error', '邀约已停止', '再次更新Cookies后仍然失败');
+                        inviteShouldStop = true;
+                        break;
+                    }
+                }
+            }
+            
+            // 如果是手动停止或被风控停止，跳出主循环
+            if (inviteShouldStop) {
+                break;
+            }
+            
             if (result && result.success) {
                 row.invite_status = '邀约成功';
                 row.invite_time = new Date().toLocaleString('zh-CN');
+                // 如果之前更新过cookies，重置标记（允许后续再次触发更新）
+                // cookiesRefreshed 是局部变量，下一轮循环会重置
             } else {
                 row.invite_status = `失败: ${result?.message || '未知错误'}`;
                 row.invite_time = '';
@@ -2883,11 +3268,15 @@ async function startInvite() {
             renderInviteTable();
 
             setInviteStatusText(`邀约进度 ${i}/${inviteItems.length - 1}`, '#007bff');
+            
+            // 成功后等待一小段时间，避免请求过快
+            await new Promise(r => setTimeout(r, 500));
         }
 
         if (!inviteShouldStop) {
             setInviteStatusText('邀约完成', '#28a745');
             showToast('success', '完成', '邀约任务已完成');
+            inviteCurrentIndex = 1; // 重置进度
         }
     } finally {
         isInviting = false;

@@ -659,6 +659,12 @@ body {
     background-color: var(--hover-bg);
 }
 
+.context-menu-item.disabled {
+    color: #999;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* 状态标签 */
 .status-tag {
     display: inline-block;

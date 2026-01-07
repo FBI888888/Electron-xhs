@@ -1013,6 +1013,17 @@ ipcMain.handle('send-invite-request', withSVIPGuard(async (event, inviteReq) => 
                 res.on('end', () => {
                     try {
                         const jsonData = JSON.parse(data);
+                        
+                        // 检查是否是频次限制错误 (code: 300013)
+                        if (jsonData?.code === 300013) {
+                            resolve({
+                                success: false,
+                                message: jsonData?.msg || '访问频次异常，请勿频繁操作或重启试试',
+                                data: jsonData
+                            });
+                            return;
+                        }
+                        
                         const inviteSucceed = jsonData?.data?.inviteSucceed === true;
                         if (jsonData?.success === true && jsonData?.code === 0 && inviteSucceed) {
                             resolve({ success: true, data: jsonData });
@@ -1331,6 +1342,422 @@ ipcMain.handle('open-blogger-detail', withLicenseGuard(async (event, url, cookie
     
     detailWindow.loadURL(url);
     return { success: true };
+}));
+
+// ==================== 密码登录功能 ====================
+
+let passwordLoginSessionCounter = 0;
+
+// 密码登录 - 后台自动登录蒲公英平台
+ipcMain.handle('password-login-pgy', withLicenseGuard(async (event, email, password) => {
+    return new Promise(async (resolve) => {
+        if (!email || !password) {
+            resolve({ success: false, message: '邮箱或密码不能为空' });
+            return;
+        }
+
+        passwordLoginSessionCounter++;
+        const partition = `memory-pwd-login-${Date.now()}-${passwordLoginSessionCounter}`;
+        const { session } = require('electron');
+        const loginSession = session.fromPartition(partition, { cache: false });
+
+        loginSession.clearStorageData();
+        loginSession.clearCache();
+
+        let loginWin = null;
+        let settled = false;
+        let timeout = null;
+
+        const finish = (payload) => {
+            if (settled) return;
+            settled = true;
+            try {
+                if (timeout) clearTimeout(timeout);
+            } catch (e) {}
+            try {
+                if (loginWin && !loginWin.isDestroyed()) {
+                    loginWin.close();
+                }
+            } catch (e) {}
+            try {
+                loginSession.clearStorageData();
+                loginSession.clearCache();
+            } catch (e) {}
+            resolve(payload);
+        };
+
+        // 从session获取cookies
+        const buildCookieHeader = async () => {
+            const all = await loginSession.cookies.get({ domain: '.xiaohongshu.com' });
+            return all
+                .filter(c => c && c.name)
+                .map(c => `${c.name}=${c.value || ''}`)
+                .join('; ');
+        };
+
+        // 验证cookies是否有效
+        const verifyCookies = (cookies) => {
+            return new Promise((resolveVerify) => {
+                const options = {
+                    hostname: 'pgy.xiaohongshu.com',
+                    port: 443,
+                    path: '/api/solar/user/info',
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json, text/plain, */*',
+                        'accept-language': 'zh-CN,zh;q=0.9',
+                        'referer': 'https://pgy.xiaohongshu.com/solar/pre-trade/home',
+                        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+                        'Cookie': cookies,
+                        'Host': 'pgy.xiaohongshu.com',
+                        'Connection': 'keep-alive'
+                    },
+                    timeout: 10000
+                };
+
+                const req = https.request(options, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => { data += chunk; });
+                    res.on('end', () => {
+                        try {
+                            const jsonData = JSON.parse(data);
+                            resolveVerify(jsonData.success && jsonData.code === 0);
+                        } catch (e) {
+                            resolveVerify(false);
+                        }
+                    });
+                });
+
+                req.on('error', () => resolveVerify(false));
+                req.on('timeout', () => { req.destroy(); resolveVerify(false); });
+                req.end();
+            });
+        };
+
+        try {
+            loginWin = new BrowserWindow({
+                width: 1200,
+                height: 800,
+                show: false, // 隐藏窗口
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true,
+                    partition: partition
+                }
+            });
+
+            // 设置超时
+            timeout = setTimeout(() => {
+                finish({ success: false, message: '登录超时，请重试' });
+            }, 60000);
+
+            // 加载蒲公英首页
+            await loginWin.loadURL('https://pgy.xiaohongshu.com/');
+
+            // 等待页面加载完成后执行自动登录流程
+            await new Promise(r => setTimeout(r, 2000));
+
+            // 步骤1: 点击登录按钮
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const loginBtn = document.querySelector('button.login-btn');
+                    if (loginBtn) {
+                        loginBtn.click();
+                        return true;
+                    }
+                    return false;
+                })();
+            `);
+
+            await new Promise(r => setTimeout(r, 1500));
+
+            // 步骤2: 点击"账号登录"
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const tabs = document.querySelectorAll('.css-1r2f04i');
+                    for (const tab of tabs) {
+                        if (tab.textContent.includes('账号登录')) {
+                            tab.click();
+                            return true;
+                        }
+                    }
+                    return false;
+                })();
+            `);
+
+            await new Promise(r => setTimeout(r, 1000));
+
+            // 步骤3: 输入邮箱和密码
+            const emailEscaped = email.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const passwordEscaped = password.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const emailInput = document.querySelector('input[name="email"]');
+                    const passwordInput = document.querySelector('input[name="password"]');
+                    
+                    if (emailInput) {
+                        emailInput.focus();
+                        emailInput.value = '${emailEscaped}';
+                        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    
+                    if (passwordInput) {
+                        passwordInput.focus();
+                        passwordInput.value = '${passwordEscaped}';
+                        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    
+                    return !!(emailInput && passwordInput);
+                })();
+            `);
+
+            await new Promise(r => setTimeout(r, 500));
+
+            // 步骤4: 点击登录按钮
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const submitBtn = document.querySelector('.beer-login-btn');
+                    if (submitBtn) {
+                        submitBtn.click();
+                        return true;
+                    }
+                    return false;
+                })();
+            `);
+
+            // 等待登录完成，轮询检查cookies
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            const checkLogin = async () => {
+                if (settled) return;
+                attempts++;
+                
+                if (attempts > maxAttempts) {
+                    finish({ success: false, message: '登录超时，请检查账号密码是否正确' });
+                    return;
+                }
+
+                try {
+                    const cookies = await buildCookieHeader();
+                    if (cookies && cookies.length > 50) {
+                        const isValid = await verifyCookies(cookies);
+                        if (isValid) {
+                            finish({ success: true, cookies: cookies });
+                            return;
+                        }
+                    }
+                } catch (e) {}
+
+                // 继续轮询
+                setTimeout(checkLogin, 1000);
+            };
+
+            // 开始轮询检查
+            setTimeout(checkLogin, 2000);
+
+        } catch (e) {
+            finish({ success: false, message: `登录异常: ${e.message}` });
+        }
+    });
+}));
+
+// 更新账号cookies - 使用保存的账号密码重新登录
+ipcMain.handle('refresh-account-cookies', withLicenseGuard(async (event, email, password, accountIndex) => {
+    return new Promise(async (resolve) => {
+        if (!email || !password) {
+            resolve({ success: false, message: '该账号没有保存账号密码，无法自动更新' });
+            return;
+        }
+
+        passwordLoginSessionCounter++;
+        const partition = `memory-pwd-refresh-${Date.now()}-${passwordLoginSessionCounter}`;
+        const { session } = require('electron');
+        const loginSession = session.fromPartition(partition, { cache: false });
+
+        loginSession.clearStorageData();
+        loginSession.clearCache();
+
+        let loginWin = null;
+        let settled = false;
+        let timeout = null;
+
+        const finish = (payload) => {
+            if (settled) return;
+            settled = true;
+            try {
+                if (timeout) clearTimeout(timeout);
+            } catch (e) {}
+            try {
+                if (loginWin && !loginWin.isDestroyed()) {
+                    loginWin.close();
+                }
+            } catch (e) {}
+            try {
+                loginSession.clearStorageData();
+                loginSession.clearCache();
+            } catch (e) {}
+            resolve(payload);
+        };
+
+        const buildCookieHeader = async () => {
+            const all = await loginSession.cookies.get({ domain: '.xiaohongshu.com' });
+            return all
+                .filter(c => c && c.name)
+                .map(c => `${c.name}=${c.value || ''}`)
+                .join('; ');
+        };
+
+        const verifyCookies = (cookies) => {
+            return new Promise((resolveVerify) => {
+                const options = {
+                    hostname: 'pgy.xiaohongshu.com',
+                    port: 443,
+                    path: '/api/solar/user/info',
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json, text/plain, */*',
+                        'Cookie': cookies,
+                        'Host': 'pgy.xiaohongshu.com'
+                    },
+                    timeout: 10000
+                };
+
+                const req = https.request(options, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => { data += chunk; });
+                    res.on('end', () => {
+                        try {
+                            const jsonData = JSON.parse(data);
+                            resolveVerify(jsonData.success && jsonData.code === 0);
+                        } catch (e) {
+                            resolveVerify(false);
+                        }
+                    });
+                });
+
+                req.on('error', () => resolveVerify(false));
+                req.on('timeout', () => { req.destroy(); resolveVerify(false); });
+                req.end();
+            });
+        };
+
+        try {
+            loginWin = new BrowserWindow({
+                width: 1200,
+                height: 800,
+                show: false,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true,
+                    partition: partition
+                }
+            });
+
+            timeout = setTimeout(() => {
+                finish({ success: false, message: '更新超时，请重试' });
+            }, 60000);
+
+            await loginWin.loadURL('https://pgy.xiaohongshu.com/');
+            await new Promise(r => setTimeout(r, 2000));
+
+            // 点击登录按钮
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const loginBtn = document.querySelector('button.login-btn');
+                    if (loginBtn) { loginBtn.click(); return true; }
+                    return false;
+                })();
+            `);
+
+            await new Promise(r => setTimeout(r, 1500));
+
+            // 点击"账号登录"
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const tabs = document.querySelectorAll('.css-1r2f04i');
+                    for (const tab of tabs) {
+                        if (tab.textContent.includes('账号登录')) {
+                            tab.click();
+                            return true;
+                        }
+                    }
+                    return false;
+                })();
+            `);
+
+            await new Promise(r => setTimeout(r, 1000));
+
+            // 输入邮箱和密码
+            const emailEscaped = email.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const passwordEscaped = password.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const emailInput = document.querySelector('input[name="email"]');
+                    const passwordInput = document.querySelector('input[name="password"]');
+                    
+                    if (emailInput) {
+                        emailInput.focus();
+                        emailInput.value = '${emailEscaped}';
+                        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    
+                    if (passwordInput) {
+                        passwordInput.focus();
+                        passwordInput.value = '${passwordEscaped}';
+                        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    
+                    return !!(emailInput && passwordInput);
+                })();
+            `);
+
+            await new Promise(r => setTimeout(r, 500));
+
+            // 点击登录按钮
+            await loginWin.webContents.executeJavaScript(`
+                (function() {
+                    const submitBtn = document.querySelector('.beer-login-btn');
+                    if (submitBtn) { submitBtn.click(); return true; }
+                    return false;
+                })();
+            `);
+
+            // 轮询检查登录状态
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            const checkLogin = async () => {
+                if (settled) return;
+                attempts++;
+                
+                if (attempts > maxAttempts) {
+                    finish({ success: false, message: '更新超时，请检查账号密码是否正确' });
+                    return;
+                }
+
+                try {
+                    const cookies = await buildCookieHeader();
+                    if (cookies && cookies.length > 50) {
+                        const isValid = await verifyCookies(cookies);
+                        if (isValid) {
+                            finish({ success: true, cookies: cookies, accountIndex: accountIndex });
+                            return;
+                        }
+                    }
+                } catch (e) {}
+
+                setTimeout(checkLogin, 1000);
+            };
+
+            setTimeout(checkLogin, 2000);
+
+        } catch (e) {
+            finish({ success: false, message: `更新异常: ${e.message}` });
+        }
+    });
 }));
 
 // ==================== 激活码验证 API ====================
