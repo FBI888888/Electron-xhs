@@ -97,8 +97,19 @@ function getDiskSerial() {
             const lines = output.trim().split('\n');
             return lines[1]?.trim() || '';
         } else if (process.platform === 'darwin') {
-            const output = execSync('system_profiler SPStorageDataType | grep "Volume UUID"', { encoding: 'utf-8' });
-            return output.split(':')[1]?.trim() || '';
+            // 优先获取硬件UUID（Hardware UUID），这是Mac唯一且稳定的标识符
+            try {
+                const hwUuid = execSync('system_profiler SPHardwareDataType | grep "Hardware UUID"', { encoding: 'utf-8' });
+                const uuid = hwUuid.split(':')[1]?.trim();
+                if (uuid) return uuid;
+            } catch (e) {}
+            
+            // 备选：获取启动盘的 Volume UUID
+            try {
+                const output = execSync('diskutil info / | grep "Volume UUID"', { encoding: 'utf-8' });
+                const uuid = output.split(':')[1]?.trim();
+                if (uuid) return uuid;
+            } catch (e) {}
         }
     } catch (e) {
         return '';
@@ -107,17 +118,69 @@ function getDiskSerial() {
 }
 
 /**
- * 获取MAC地址 (获取第一个非内部网卡)
+ * 获取MAC地址 (稳定版本)
+ * Mac: 使用系统命令获取固定的硬件MAC地址，避免网络接口顺序变化导致的不稳定
+ * Windows/Linux: 优先获取以太网或Wi-Fi的MAC地址
  */
 function getMacAddress() {
+    try {
+        if (process.platform === 'darwin') {
+            // Mac: 使用 networksetup 获取 Wi-Fi 或以太网的硬件 MAC 地址
+            // 这个 MAC 地址是硬件固定的，不会因为网络状态变化而改变
+            try {
+                // 优先尝试获取 Wi-Fi MAC (en0 通常是 Wi-Fi)
+                const wifiMac = execSync('networksetup -getmacaddress Wi-Fi 2>/dev/null || networksetup -getmacaddress en0 2>/dev/null', { encoding: 'utf-8' });
+                const match = wifiMac.match(/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/);
+                if (match) {
+                    return match[0].toLowerCase();
+                }
+            } catch (e) {}
+            
+            // 备选: 尝试获取以太网 MAC
+            try {
+                const ethernetMac = execSync('networksetup -getmacaddress Ethernet 2>/dev/null || networksetup -getmacaddress en1 2>/dev/null', { encoding: 'utf-8' });
+                const match = ethernetMac.match(/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/);
+                if (match) {
+                    return match[0].toLowerCase();
+                }
+            } catch (e) {}
+            
+            // 最后备选: 使用 ifconfig 获取 en0 的 MAC
+            try {
+                const output = execSync('ifconfig en0 2>/dev/null | grep ether', { encoding: 'utf-8' });
+                const match = output.match(/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/);
+                if (match) {
+                    return match[0].toLowerCase();
+                }
+            } catch (e) {}
+        }
+    } catch (e) {}
+    
+    // Windows/Linux 或 Mac 备选方案: 按固定优先级选择网卡
     const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
+    const priority = ['以太网', 'Ethernet', 'eth0', 'en0', 'Wi-Fi', 'wlan0', 'en1'];
+    
+    // 先按优先级查找
+    for (const name of priority) {
+        if (interfaces[name]) {
+            for (const iface of interfaces[name]) {
+                if (!iface.internal && iface.mac && iface.mac !== '00:00:00:00:00:00') {
+                    return iface.mac;
+                }
+            }
+        }
+    }
+    
+    // 如果优先级列表都没找到，按字母顺序排序后取第一个（保证顺序稳定）
+    const sortedNames = Object.keys(interfaces).sort();
+    for (const name of sortedNames) {
         for (const iface of interfaces[name]) {
             if (!iface.internal && iface.mac && iface.mac !== '00:00:00:00:00:00') {
                 return iface.mac;
             }
         }
     }
+    
     return '';
 }
 
