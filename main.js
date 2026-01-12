@@ -29,6 +29,11 @@ function ensureDirExists(dirPath) {
 }
 
 function initAppDataPaths() {
+    if (process.platform === 'darwin') {
+        license.setDataPath(app.getPath('userData'));
+        return;
+    }
+
     const root = getAppRootPath();
     const dataRoot = path.join(root, 'data');
     ensureDirExists(dataRoot);

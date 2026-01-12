@@ -60,7 +60,14 @@ function getCpuId() {
             const lines = output.trim().split('\n');
             return lines[1]?.trim() || '';
         } else if (process.platform === 'darwin') {
-            const output = execSync('system_profiler SPHardwareDataType | grep "Serial Number"', { encoding: 'utf-8' });
+            try {
+                const output = execSync('/usr/sbin/ioreg -rd1 -c IOPlatformExpertDevice', { encoding: 'utf-8' });
+                const match = output.match(/\"IOPlatformSerialNumber\"\s*=\s*\"([^\"]+)\"/);
+                if (match && match[1]) {
+                    return match[1].trim();
+                }
+            } catch (e) {}
+            const output = execSync('/usr/sbin/system_profiler SPHardwareDataType | /usr/bin/grep "Serial Number"', { encoding: 'utf-8' });
             return output.split(':')[1]?.trim() || '';
         } else {
             const output = execSync('cat /proc/cpuinfo | grep "Serial" | head -1', { encoding: 'utf-8' });
@@ -97,16 +104,17 @@ function getDiskSerial() {
             const lines = output.trim().split('\n');
             return lines[1]?.trim() || '';
         } else if (process.platform === 'darwin') {
-            // 优先获取硬件UUID（Hardware UUID），这是Mac唯一且稳定的标识符
             try {
-                const hwUuid = execSync('system_profiler SPHardwareDataType | grep "Hardware UUID"', { encoding: 'utf-8' });
-                const uuid = hwUuid.split(':')[1]?.trim();
-                if (uuid) return uuid;
+                const output = execSync('/usr/sbin/ioreg -rd1 -c IOPlatformExpertDevice', { encoding: 'utf-8' });
+                const match = output.match(/\"IOPlatformUUID\"\s*=\s*\"([^\"]+)\"/);
+                if (match && match[1]) {
+                    return match[1].trim();
+                }
             } catch (e) {}
             
             // 备选：获取启动盘的 Volume UUID
             try {
-                const output = execSync('diskutil info / | grep "Volume UUID"', { encoding: 'utf-8' });
+                const output = execSync('/usr/sbin/diskutil info / | /usr/bin/grep "Volume UUID"', { encoding: 'utf-8' });
                 const uuid = output.split(':')[1]?.trim();
                 if (uuid) return uuid;
             } catch (e) {}
@@ -129,7 +137,7 @@ function getMacAddress() {
             // 这个 MAC 地址是硬件固定的，不会因为网络状态变化而改变
             try {
                 // 优先尝试获取 Wi-Fi MAC (en0 通常是 Wi-Fi)
-                const wifiMac = execSync('networksetup -getmacaddress Wi-Fi 2>/dev/null || networksetup -getmacaddress en0 2>/dev/null', { encoding: 'utf-8' });
+                const wifiMac = execSync('/usr/sbin/networksetup -getmacaddress Wi-Fi 2>/dev/null || /usr/sbin/networksetup -getmacaddress en0 2>/dev/null', { encoding: 'utf-8' });
                 const match = wifiMac.match(/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/);
                 if (match) {
                     return match[0].toLowerCase();
@@ -138,7 +146,7 @@ function getMacAddress() {
             
             // 备选: 尝试获取以太网 MAC
             try {
-                const ethernetMac = execSync('networksetup -getmacaddress Ethernet 2>/dev/null || networksetup -getmacaddress en1 2>/dev/null', { encoding: 'utf-8' });
+                const ethernetMac = execSync('/usr/sbin/networksetup -getmacaddress Ethernet 2>/dev/null || /usr/sbin/networksetup -getmacaddress en1 2>/dev/null', { encoding: 'utf-8' });
                 const match = ethernetMac.match(/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/);
                 if (match) {
                     return match[0].toLowerCase();
@@ -147,7 +155,7 @@ function getMacAddress() {
             
             // 最后备选: 使用 ifconfig 获取 en0 的 MAC
             try {
-                const output = execSync('ifconfig en0 2>/dev/null | grep ether', { encoding: 'utf-8' });
+                const output = execSync('/sbin/ifconfig en0 2>/dev/null | /usr/bin/grep ether', { encoding: 'utf-8' });
                 const match = output.match(/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/);
                 if (match) {
                     return match[0].toLowerCase();
@@ -189,23 +197,35 @@ function getMacAddress() {
  * 结合多种硬件信息生成，防止单一硬件更换导致机器码变化
  */
 function generateMachineCode() {
-    const cpuId = getCpuId();
-    const motherboard = getMotherboardSerial();
-    const disk = getDiskSerial();
-    const mac = getMacAddress();
-    const hostname = os.hostname();
     const platform = os.platform();
-    
+
     // 组合多种硬件信息
-    const rawData = [
-        cpuId,
-        motherboard,
-        disk,
-        mac,
-        hostname,
-        platform
-    ].filter(Boolean).join('|');
-    
+    let rawData = '';
+    if (process.platform === 'darwin') {
+        const disk = getDiskSerial();
+        const cpuId = getCpuId();
+        const hostname = os.hostname();
+
+        let stableId = loadDeviceId();
+        if (!stableId) {
+            stableId = (disk || cpuId || hostname || '').trim();
+            if (stableId) {
+                saveDeviceId(stableId);
+            }
+        }
+        rawData = [stableId].filter(Boolean).join('|');
+    } else {
+        const cpuId = getCpuId();
+        const motherboard = getMotherboardSerial();
+        const disk = getDiskSerial();
+        const mac = getMacAddress();
+        const hostname = os.hostname();
+
+        rawData = [cpuId, motherboard, disk, mac, hostname, platform]
+            .filter(Boolean)
+            .join('|');
+    }
+     
     // 生成哈希作为机器码
     const hash = crypto.createHash('sha256')
         .update(rawData + CLIENT_KEY)
@@ -218,12 +238,36 @@ function generateMachineCode() {
 // ==================== 本地存储 ====================
 
 let licenseDataPath = '';
+let deviceIdPath = '';
 
 /**
  * 设置数据存储路径
  */
 function setDataPath(userDataPath) {
     licenseDataPath = path.join(userDataPath, 'license.dat');
+    deviceIdPath = path.join(userDataPath, 'device.id');
+}
+
+function loadDeviceId() {
+    try {
+        if (!deviceIdPath) return '';
+        if (!fs.existsSync(deviceIdPath)) return '';
+        const v = fs.readFileSync(deviceIdPath, 'utf-8');
+        return (v || '').trim();
+    } catch (e) {
+        return '';
+    }
+}
+
+function saveDeviceId(id) {
+    try {
+        if (!deviceIdPath) return false;
+        if (!id) return false;
+        fs.writeFileSync(deviceIdPath, String(id).trim(), 'utf-8');
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 /**
@@ -294,6 +338,9 @@ function clearLicenseData() {
     try {
         if (fs.existsSync(licenseDataPath)) {
             fs.unlinkSync(licenseDataPath);
+        }
+        if (deviceIdPath && fs.existsSync(deviceIdPath)) {
+            fs.unlinkSync(deviceIdPath);
         }
         return true;
     } catch (e) {
