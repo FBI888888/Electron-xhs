@@ -684,6 +684,11 @@ ipcMain.handle('collect-fans-profile', withLicenseGuard(async (event, userId, co
     return await bloggerApi.getFansProfile(userId, cookies);
 }));
 
+// 采集近期合作品牌
+ipcMain.handle('collect-recent-brands', withLicenseGuard(async (event, userId, cookies) => {
+    return await bloggerApi.getRecentBrands(userId, cookies);
+}));
+
 // HTTP 请求处理 - 用于验证账号
 ipcMain.handle('check-account', withLicenseGuard(async (event, cookies) => {
     return new Promise((resolve) => {

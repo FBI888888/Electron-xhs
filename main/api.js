@@ -275,7 +275,7 @@ async function getBloggerInfo(userId, cookies) {
                 if (result.code === 0 && result.success) {
                     const rawData = result.data || {};
                     
-                    // 处理内容标签
+                    // 处理内容标签 (taxonomy2Tags)
                     let contentTags = [];
                     if (rawData.contentTags) {
                         for (const tag of rawData.contentTags) {
@@ -284,6 +284,20 @@ async function getBloggerInfo(userId, cookies) {
                         }
                     }
                     const contentTagsStr = contentTags.join(', ');
+                    
+                    // 处理个人标签 (contentTags.taxonomy1Tag + featureTags)
+                    let personalTagsList = [];
+                    if (rawData.contentTags) {
+                        for (const tag of rawData.contentTags) {
+                            if (tag.taxonomy1Tag) {
+                                personalTagsList.push(tag.taxonomy1Tag);
+                            }
+                        }
+                    }
+                    if (rawData.featureTags && Array.isArray(rawData.featureTags)) {
+                        personalTagsList = personalTagsList.concat(rawData.featureTags);
+                    }
+                    const personalTagsStr = personalTagsList.join(', ');
                     
                     // 处理签约机构
                     const noteSign = rawData.noteSign;
@@ -299,6 +313,7 @@ async function getBloggerInfo(userId, cookies) {
                             location: rawData.location || '',
                             fansCount: rawData.fansCount || 0,
                             likeCollectCountInfo: rawData.likeCollectCountInfo || 0,
+                            personalTags: personalTagsStr,
                             picturePrice: rawData.picturePrice || 0,
                             videoPrice: rawData.videoPrice || 0,
                             lowerPrice: rawData.lowerPrice || 0,
@@ -541,11 +556,56 @@ async function getFansProfile(userId, cookies) {
     });
 }
 
+/**
+ * 获取近期合作品牌
+ * 从笔记详情接口获取brandName
+ */
+async function getRecentBrands(userId, cookies) {
+    return withRetry(async () => {
+        const url = `https://pgy.xiaohongshu.com/api/solar/kol/data_v2/notes_detail?advertiseSwitch=1&orderType=1&pageNumber=1&pageSize=20&userId=${userId}&noteType=3&isThirdPlatform=0`;
+        const options = getRequestOptions(url, cookies);
+        
+        try {
+            const response = await makeRequest(options);
+            
+            if (response.statusCode === 200) {
+                const result = JSON.parse(response.data);
+                if (result.code === 0 && result.success) {
+                    const list = result.data?.list || [];
+                    
+                    // 提取所有非空的brandName并去重
+                    const brands = new Set();
+                    for (const note of list) {
+                        if (note.brandName) {
+                            brands.add(note.brandName);
+                        }
+                    }
+                    
+                    return {
+                        success: true,
+                        message: '近期合作品牌采集成功',
+                        data: {
+                            recentBrands: Array.from(brands).join(', ')
+                        }
+                    };
+                } else {
+                    return { success: false, message: `接口返回错误: ${result.msg || '未知错误'}` };
+                }
+            } else {
+                return { success: false, message: `HTTP错误: ${response.statusCode}` };
+            }
+        } catch (e) {
+            return { success: false, message: `请求异常: ${e.message}` };
+        }
+    });
+}
+
 module.exports = {
     getBloggerInfo,
     getDataSummary,
     getFansSummary,
     getFansProfile,
+    getRecentBrands,
     getRequestOptions,
     makeRequest,
     getSignHeaders

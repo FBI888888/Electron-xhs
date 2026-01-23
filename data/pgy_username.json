@@ -1,32 +1,12 @@
 [
   {
-    "remark": "测试",
-    "nickName": "tongming",
-    "status": "正常",
-    "cookies": "acw_tc=0a42252317658722058247866e8bdb29c020fb52485788527e5fac4daa1db9; xsecappid=ratlin; loadts=1765872202341; a1=19b262f72651sf84b1co0c63w70uc6si3kkheb9ph50000200226; webId=f2525cc87650397ae5203927b03e249d; websectiga=16f444b9ff5e3d7e258b5f7674489196303a0b160e16647c6c2b4dcb609f4134; sec_poison_id=748f2ea8-daf1-4316-a4aa-b51c22799497; gid=yjDJKJij8qqdyjDJKJiWJTDjK2yMiY4DySl8TUxSKqEW8x287SKM3d888J88JJK8DS08JiYq; customer-sso-sid=68c5175843635843036774547qifdpyh7uwswmgq; x-user-id-pgy.xiaohongshu.com=66063984e300000000000001; customerClientId=023924442958458; solar.beaker.session.id=AT-68c517584363584303693832yioob7iyv4cfoegw; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c517584363584303693832yioob7iyv4cfoegw; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c517584363584303693832yioob7iyv4cfoegw",
-    "last_use_date": "2025-12-18",
-    "today_use_count": 2
-  },
-  {
-    "remark": "野猴",
-    "nickName": "一只楠楠",
-    "status": "正常",
-    "cookies": "acw_tc=0a426f0117659855565031886e5560da19c027aaba8d45dad18da33e3d582f; xsecappid=ratlin; loadts=1765985557463; a1=19b2cf11bd7xtkjwtq5asj3r7vwi5ygpbfzbt3cwl50000107148; webId=60bac6980f0d0752813f58f22437cf67; websectiga=634d3ad75ffb42a2ade2c5e1705a73c845837578aeb31ba0e442d75c648da36a; sec_poison_id=200aef31-81f7-40a1-b952-3d3110ca0457; gid=yjDJSiyJdJD0yjDJSiyyDiqSfWC9TVE9A20MuE1VqFWhED2832vkU9888y8Wy4Y82qWYW0jj; customer-sso-sid=68c517584850307177529345uxoaxzy0bzxduawc; x-user-id-pgy.xiaohongshu.com=68f87db4155d000000000001; customerClientId=748671310289928; solar.beaker.session.id=AT-68c517584850307177578498fqltlazi19u9aspk; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c517584850307177578498fqltlazi19u9aspk; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c517584850307177578498fqltlazi19u9aspk",
-    "last_use_date": "2025-12-18",
-    "today_use_count": 1
-  },
-  {
-    "remark": "daas",
-    "nickName": "北京野猴文化有限公司",
-    "status": "失效",
-    "cookies": "acw_tc=0a00076317667670867674164e7d43b5e2989f45be7ac3a12e79db424a3f76; xsecappid=ratlin; loadts=1766767088556; a1=19b5b8653adm93doliookw6m95ae73ex0vwa58nmo50000262676; webId=df8e2138d60edd3f6da4791381fa703a; websectiga=10f9a40ba454a07755a08f27ef8194c53637eba4551cf9751c009d9afb564467; sec_poison_id=e828cc44-1bfa-429f-853c-6e83fa473a80; gid=yjD2DYK2f48fyjD2DYK2qhYI0f6jqfl13llTE6lEK6j20028dWqdC2888JKJKWK82fj4jJdd; customer-sso-sid=68c5175882070947024896008jhrahq3ve57d1tg; x-user-id-pgy.xiaohongshu.com=68f87db4155d000000000001; customerClientId=288031095515008; solar.beaker.session.id=AT-68c517588207094702325760marojy8gcwknyva8; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c517588207094702325760marojy8gcwknyva8; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c517588207094702325760marojy8gcwknyva8"
-  },
-  {
     "remark": "密码登陆测试",
     "nickName": "tongming",
     "status": "正常",
-    "cookies": "acw_tc=0a00071717677709290574838e5a953c0a67360bd1462e98e7f0392bd2de53; acw_tc=0a00d53517677709293616730eced7043ab4d6a3e772683f8097861315fef4; xsecappid=ratlin; loadts=1767770928630; a1=19b975bb5f6xnolf1cxgh2uw0hbmi1afz0qr2psdb50000543243; webId=1f3cad734910c75b7abbd5ec81dc74fa; acw_tc=0a00075317677709311561161e4449154a24646dae6131b4d1819531104436; websectiga=10f9a40ba454a07755a08f27ef8194c53637eba4551cf9751c009d9afb564467; sec_poison_id=4e31e709-c84a-4320-a572-47463c81a382; gid=yjDjW2DSSiu0yjDjW2DD28UMiKCIl1iySCkxAfDJ7E8xDF2863y0iJ88824qJ4q8dy8fJdSd; customer-sso-sid=68c5175925183613993287741owothbi74yegdq7; x-user-id-pgy.xiaohongshu.com=66063984e300000000000001; customerClientId=708554837437288; solar.beaker.session.id=AT-68c5175925183613992304734i0w3ilyxehqs5sw; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c5175925183613992304734i0w3ilyxehqs5sw; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c5175925183613992304734i0w3ilyxehqs5sw",
+    "cookies": "acw_tc=0a0d0f5817691509330698247eaedd8deadfd823227b7dac40638e13b71d9a; acw_tc=0a4220b717691509333528934e04354b6599844f5d3be607821d652e5abb1e; xsecappid=ratlin; loadts=1769150926780; a1=19be99ccfbcydvjdbzenscrwuk9wlsg5ykwurvdol50000124629; webId=8fb7401740c74540cd674c91e693337c; acw_tc=0a0d0ff917691509340454627e4ad862fe089eb8212151107d8feefd686c52; websectiga=f3d8eaee8a8c63016320d94a1bd00562d516a5417bc43a032a80cbf70f07d5c0; sec_poison_id=dde3e0ae-94a7-4b14-bf8a-e20b7c64c4ca; gid=yjDdjjSiKivYyjDdjjSSiThfDSvfhVfDudIMEl1SFE7Tj728E1Mk2F888yJ4KJj8J80408yK; customer-sso-sid=68c517598445424857645064q2wdjjarss4q9bzf; x-user-id-pgy.xiaohongshu.com=66063984e300000000000001; customerClientId=542024490468667; solar.beaker.session.id=AT-68c517598445424857628683ejz6lhy31ojxqtxw; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c517598445424857628683ejz6lhy31ojxqtxw; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c517598445424857628683ejz6lhy31ojxqtxw",
     "email": "leil@wzgroup.cn",
-    "password": "091625Lara!"
+    "password": "091625Lara!",
+    "last_use_date": "2026-01-23",
+    "today_use_count": 1
   }
 ]

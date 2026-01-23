@@ -1636,14 +1636,16 @@ async function collectSingleItem(index, item, selectedFields, maxCount) {
             : Promise.resolve({ success: true, data: null, message: '' }),
         ipcRenderer.invoke('collect-fans-summary', userId, cookies),
         ipcRenderer.invoke('collect-fans-profile', userId, cookies),
+        ipcRenderer.invoke('collect-recent-brands', userId, cookies),
     ];
 
-    const [r2, r3, r4, r5] = await Promise.allSettled(tasks);
+    const [r2, r3, r4, r5, r6] = await Promise.allSettled(tasks);
 
     const result2 = r2.status === 'fulfilled' ? r2.value : { success: false, message: r2.reason?.message || String(r2.reason) };
     const result3 = r3.status === 'fulfilled' ? r3.value : { success: false, message: r3.reason?.message || String(r3.reason) };
     const result4 = r4.status === 'fulfilled' ? r4.value : { success: false, message: r4.reason?.message || String(r4.reason) };
     const result5 = r5.status === 'fulfilled' ? r5.value : { success: false, message: r5.reason?.message || String(r5.reason) };
+    const result6 = r6.status === 'fulfilled' ? r6.value : { success: false, message: r6.reason?.message || String(r6.reason) };
 
     if (result2.success && result2.data) {
         combinedData = { ...combinedData, ...result2.data };
@@ -1669,6 +1671,12 @@ async function collectSingleItem(index, item, selectedFields, maxCount) {
         combinedData = { ...combinedData, ...result5.data };
     } else if (!result5.success) {
         finalMessage += `（粉丝画像失败: ${result5.message}）`;
+    }
+
+    if (result6.success && result6.data) {
+        combinedData = { ...combinedData, ...result6.data };
+    } else if (!result6.success) {
+        finalMessage += `（近期合作品牌失败: ${result6.message}）`;
     }
     
     return { success: true, message: finalMessage, data: combinedData };
@@ -2107,8 +2115,8 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
         const baseHeaders = [
             '博主主页', '达人 ID', '蒲公英主页', '小红书主页',
             '昵称', '健康等级', '性别', '小红书号', '地理位置',
-            '粉丝数量', '粉丝数量（万）', '获赞与收藏', '获赞与收藏（万）', '合作报价-图文笔记',
-            '合作报价-视频笔记', '合作报价-最低报价',
+            '粉丝数量', '粉丝数量（万）', '获赞与收藏', '获赞与收藏（万）', '个人标签', '近期合作品牌',
+            '合作报价-图文笔记', '合作报价-视频笔记', '合作报价-最低报价',
             '签约机构', '内容标签', '合作行业',
             // 数据概览字段
             '发布笔记', '内容类目', '数据更新时间',
@@ -2182,6 +2190,8 @@ async function saveToExcel(loadedSettings, selectedFields, saveAll = false) {
                     formatWanW(d.fansCount),
                     d.likeCollectCountInfo || 0,
                     formatWanW(d.likeCollectCountInfo),
+                    d.personalTags || '',
+                    d.recentBrands || '',
                     d.picturePrice || 0,
                     d.videoPrice || 0,
                     d.lowerPrice || 0,

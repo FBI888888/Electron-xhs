@@ -200,28 +200,30 @@ function generateMachineCode() {
     const platform = os.platform();
 
     // 组合多种硬件信息
+    // 注意：不使用 hostname 和 mac 地址，因为它们可能随网络环境变化
     let rawData = '';
     if (process.platform === 'darwin') {
-        const disk = getDiskSerial();
-        const cpuId = getCpuId();
-        const hostname = os.hostname();
+        // Mac: 使用 IOPlatformUUID 和 IOPlatformSerialNumber，这些是硬件固定的
+        const disk = getDiskSerial();   // IOPlatformUUID
+        const cpuId = getCpuId();        // IOPlatformSerialNumber
 
         let stableId = loadDeviceId();
         if (!stableId) {
-            stableId = (disk || cpuId || hostname || '').trim();
+            // 仅使用硬件标识，不使用可能变化的 hostname
+            stableId = (disk || cpuId || '').trim();
             if (stableId) {
                 saveDeviceId(stableId);
             }
         }
         rawData = [stableId].filter(Boolean).join('|');
     } else {
+        // Windows/Linux: 使用稳定的硬件标识
+        // 移除 mac 和 hostname，它们可能随网络变化
         const cpuId = getCpuId();
         const motherboard = getMotherboardSerial();
         const disk = getDiskSerial();
-        const mac = getMacAddress();
-        const hostname = os.hostname();
 
-        rawData = [cpuId, motherboard, disk, mac, hostname, platform]
+        rawData = [cpuId, motherboard, disk, platform]
             .filter(Boolean)
             .join('|');
     }
