@@ -149,12 +149,12 @@ function withSVIPGuard(handler) {
 function createWindow() {
     // 移除菜单栏
     Menu.setApplicationMenu(null);
-    
+
     // 获取屏幕尺寸，窗口占70%
     const { screen } = require('electron');
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
-    
+
     const windowWidth = Math.floor(width * 0.7);
     const windowHeight = Math.floor(height * 0.8);
 
@@ -173,7 +173,7 @@ function createWindow() {
     });
 
     mainWindow.loadFile('index.html');
-    
+
     // 窗口准备好后显示
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
@@ -186,7 +186,7 @@ function createWindow() {
 // 创建激活窗口
 function createActivationWindow() {
     Menu.setApplicationMenu(null);
-    
+
     activationWindow = new BrowserWindow({
         width: 520,
         height: 700,
@@ -201,11 +201,11 @@ function createActivationWindow() {
     });
 
     activationWindow.loadFile('activation.html');
-    
+
     activationWindow.once('ready-to-show', () => {
         activationWindow.show();
     });
-    
+
     activationWindow.on('closed', () => {
         activationWindow = null;
         // 如果激活窗口关闭且主窗口未创建，则退出应用
@@ -219,10 +219,10 @@ function createActivationWindow() {
 app.whenReady().then(async () => {
     // 初始化路径：确保所有缓存/数据都写入安装目录下的 data
     initAppDataPaths();
-    
+
     // 检查激活状态 - 必须连接服务器验证
     const verifyResult = await license.verify();
-    
+
     if (verifyResult.success) {
         // 已激活，启动心跳检测并显示主窗口
         license.startHeartbeat((result) => {
@@ -250,7 +250,7 @@ app.whenReady().then(async () => {
             detail: '请检查网络连接或联系管理员确认服务器是否正常运行。',
             buttons: ['重试', '退出']
         });
-        
+
         if (choice.response === 0) {
             // 重试
             app.relaunch();
@@ -689,6 +689,11 @@ ipcMain.handle('collect-recent-brands', withLicenseGuard(async (event, userId, c
     return await bloggerApi.getRecentBrands(userId, cookies);
 }));
 
+// 采集核心数据 CPUV (外溢进店单价)
+ipcMain.handle('collect-cpuv-data', withLicenseGuard(async (event, userId, cookies) => {
+    return await bloggerApi.getCoreDataCpuv(userId, cookies);
+}));
+
 // HTTP 请求处理 - 用于验证账号
 ipcMain.handle('check-account', withLicenseGuard(async (event, cookies) => {
     return new Promise((resolve) => {
@@ -711,22 +716,22 @@ ipcMain.handle('check-account', withLicenseGuard(async (event, cookies) => {
 
         const req = https.request(options, (res) => {
             let data = '';
-            
+
             res.on('data', (chunk) => {
                 data += chunk;
             });
-            
+
             res.on('end', () => {
                 try {
                     const jsonData = JSON.parse(data);
-                    
+
                     if (jsonData.success && jsonData.code === 0) {
                         let nickName = '';
                         const roleInfoList = jsonData.data?.roleInfoList || [];
                         if (roleInfoList.length > 0) {
                             nickName = roleInfoList[0].nickName || '';
                         }
-                        
+
                         resolve({
                             success: true,
                             message: '账号有效',
@@ -788,13 +793,13 @@ ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) =
         bloggerWindow.focus();
         return { success: true, message: '窗口已打开' };
     }
-    
+
     // 每次创建全新的内存会话，不保存缓存
     bloggerSessionCounter++;
     const partition = `memory-blogger-${Date.now()}-${bloggerSessionCounter}`;
     const { session } = require('electron');
     const bloggerSession = session.fromPartition(partition, { cache: false });
-    
+
     bloggerWindow = new BrowserWindow({
         width: 1400,
         height: 900,
@@ -806,11 +811,11 @@ ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) =
         parent: mainWindow,
         title: '博主广场 - 蒲公英平台'
     });
-    
+
     // 设置 cookies
     const sessionObj = bloggerSession;
     const cookiePairs = cookies.split(';').map(c => c.trim()).filter(c => c);
-    
+
     for (const pair of cookiePairs) {
         const [name, ...valueParts] = pair.split('=');
         const value = valueParts.join('=');
@@ -827,10 +832,10 @@ ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) =
             }
         }
     }
-    
+
     // 监听网络请求
     capturedRequest = null;
-    
+
     // onBeforeRequest 先执行，捕获请求体
     bloggerSession.webRequest.onBeforeRequest(
         { urls: ['https://pgy.xiaohongshu.com/api/solar/cooperator/blogger/v2*'] },
@@ -851,7 +856,7 @@ ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) =
             callback({});
         }
     );
-    
+
     // onBeforeSendHeaders 后执行，捕获请求头并通知
     bloggerSession.webRequest.onBeforeSendHeaders(
         { urls: ['https://pgy.xiaohongshu.com/api/solar/cooperator/blogger/v2*'] },
@@ -866,16 +871,16 @@ ipcMain.handle('open-blogger-browser', withLicenseGuard(async (event, cookies) =
             callback({ requestHeaders: details.requestHeaders });
         }
     );
-    
+
     // 加载博主广场页面
     bloggerWindow.loadURL('https://pgy.xiaohongshu.com/solar/pre-trade/note/kol');
-    
+
     bloggerWindow.on('closed', () => {
         bloggerSession.clearStorageData();
         bloggerSession.clearCache();
         bloggerWindow = null;
     });
-    
+
     return { success: true, message: '浏览器窗口已打开' };
 }));
 
@@ -1023,7 +1028,7 @@ ipcMain.handle('send-invite-request', withSVIPGuard(async (event, inviteReq) => 
                 res.on('end', () => {
                     try {
                         const jsonData = JSON.parse(data);
-                        
+
                         // 检查是否是频次限制错误 (code: 300013)
                         if (jsonData?.code === 300013) {
                             resolve({
@@ -1033,7 +1038,7 @@ ipcMain.handle('send-invite-request', withSVIPGuard(async (event, inviteReq) => 
                             });
                             return;
                         }
-                        
+
                         const inviteSucceed = jsonData?.data?.inviteSucceed === true;
                         if (jsonData?.success === true && jsonData?.code === 0 && inviteSucceed) {
                             resolve({ success: true, data: jsonData });
@@ -1070,72 +1075,100 @@ ipcMain.handle('fetch-blogger-list', async (event, pageNum, capturedReq) => {
         try {
             const body = { ...capturedReq.body, pageNum: pageNum };
             const bodyStr = JSON.stringify(body);
-            
+
+            console.log(`[达人列表] 请求第 ${pageNum} 页，body:`, JSON.stringify(body));
+
             const headers = { ...capturedReq.headers };
-            
+
             // 移除可能导致问题的头
             delete headers['content-length'];
             delete headers['Content-Length'];
-            // 移除压缩相关头，避免返回压缩数据
+            // 移除压缩相关头，避免返回压缩数据（强制服务器返回明文JSON）
             delete headers['accept-encoding'];
             delete headers['Accept-Encoding'];
-            
+            delete headers['Accept-Encoding'.toLowerCase()];
+
             const options = {
                 hostname: 'pgy.xiaohongshu.com',
                 path: '/api/solar/cooperator/blogger/v2',
                 method: 'POST',
                 headers: {
                     ...headers,
+                    'Accept-Encoding': 'identity', // 明确要求不压缩
                     'Content-Length': Buffer.byteLength(bodyStr)
                 },
                 timeout: 15000
             };
-            
+
             const req = https.request(options, (res) => {
-                let data = '';
-                res.on('data', chunk => data += chunk);
+                console.log(`[达人列表] 第 ${pageNum} 页响应状态: ${res.statusCode}`);
+                console.log(`[达人列表] 第 ${pageNum} 页响应头:`, JSON.stringify(res.headers));
+
+                // 使用 Buffer 拼接，避免 gzip/二进制数据被字符串破坏
+                const chunks = [];
+                res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
                 res.on('end', () => {
+                    const rawBuffer = Buffer.concat(chunks);
+                    const rawStr = rawBuffer.toString('utf8');
+
+                    console.log(`[达人列表] 第 ${pageNum} 页原始响应(前500字符): ${rawStr.slice(0, 500)}`);
+
                     try {
-                        const jsonData = JSON.parse(data);
+                        const jsonData = JSON.parse(rawStr);
                         if (jsonData.success && jsonData.code === 0) {
+                            const kols = jsonData.data?.kols || [];
+                            const total = jsonData.data?.total || 0;
+                            console.log(`[达人列表] 第 ${pageNum} 页成功: kols=${kols.length}, total=${total}`);
                             resolve({
                                 success: true,
-                                data: jsonData.data?.kols || [],
-                                total: jsonData.data?.total || 0
+                                data: kols,
+                                total: total,
+                                hasMore: kols.length > 0,
+                                httpStatus: res.statusCode
                             });
                         } else {
+                            console.log(`[达人列表] 第 ${pageNum} 页业务失败: code=${jsonData.code}, msg=${jsonData.msg}`);
                             resolve({
                                 success: false,
-                                message: jsonData.msg || '获取失败'
+                                message: jsonData.msg || '获取失败',
+                                code: jsonData.code,
+                                httpStatus: res.statusCode,
+                                rawResponse: rawStr.slice(0, 300)
                             });
                         }
                     } catch (e) {
+                        console.log(`[达人列表] 第 ${pageNum} 页JSON解析失败: ${e.message}, 原始内容: ${rawStr.slice(0, 200)}`);
                         resolve({
                             success: false,
-                            message: `解析响应失败: ${e.message}`
+                            message: `解析响应失败: ${e.message}`,
+                            httpStatus: res.statusCode,
+                            rawResponse: rawStr.slice(0, 300)
                         });
                     }
                 });
             });
-            
+
             req.on('error', (e) => {
+                console.log(`[达人列表] 第 ${pageNum} 页请求错误: ${e.message}`);
                 resolve({
                     success: false,
                     message: `请求失败: ${e.message}`
                 });
             });
-            
+
             req.on('timeout', () => {
                 req.destroy();
+                console.log(`[达人列表] 第 ${pageNum} 页请求超时`);
                 resolve({
                     success: false,
                     message: '请求超时'
                 });
             });
-            
+
             req.write(bodyStr);
             req.end();
         } catch (e) {
+            console.log(`[达人列表] 第 ${pageNum} 页请求异常: ${e.message}`);
             resolve({
                 success: false,
                 message: `请求异常: ${e.message}`
@@ -1171,17 +1204,17 @@ ipcMain.handle('open-direct-login', withLicenseGuard(async () => {
         loginWindow.close();
         loginWindow = null;
     }
-    
+
     // 每次创建一个全新的内存会话，不保存任何缓存
     loginSessionCounter++;
     const partition = `memory-login-${Date.now()}-${loginSessionCounter}`;
     const { session } = require('electron');
     const loginSession = session.fromPartition(partition, { cache: false });
-    
+
     // 确保不缓存任何数据
     loginSession.clearStorageData();
     loginSession.clearCache();
-    
+
     loginWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -1193,10 +1226,10 @@ ipcMain.handle('open-direct-login', withLicenseGuard(async () => {
         parent: mainWindow,
         title: '蒲公英平台 - 登录获取Cookies'
     });
-    
+
     let cookiesCaptured = false;
     let pendingCookies = null;
-    
+
     // 验证Cookies是否有效的函数
     const verifyCookies = (cookies) => {
         return new Promise((resolve) => {
@@ -1236,7 +1269,7 @@ ipcMain.handle('open-direct-login', withLicenseGuard(async () => {
             req.end();
         });
     };
-    
+
     // 监听目标请求，捕获Cookie头
     loginSession.webRequest.onBeforeSendHeaders(
         { urls: ['https://pgy.xiaohongshu.com/api/solar/user/info*'] },
@@ -1251,7 +1284,7 @@ ipcMain.handle('open-direct-login', withLicenseGuard(async () => {
             callback({ requestHeaders: details.requestHeaders });
         }
     );
-    
+
     // 监听响应完成，验证响应是否有效
     loginSession.webRequest.onCompleted(
         { urls: ['https://pgy.xiaohongshu.com/api/solar/user/info*'] },
@@ -1259,7 +1292,7 @@ ipcMain.handle('open-direct-login', withLicenseGuard(async () => {
             if (!cookiesCaptured && pendingCookies && details.statusCode === 200) {
                 // 验证cookies是否有效
                 const isValid = await verifyCookies(pendingCookies);
-                
+
                 if (isValid) {
                     cookiesCaptured = true;
                     // 发送捕获到的Cookies到渲染进程
@@ -1280,17 +1313,17 @@ ipcMain.handle('open-direct-login', withLicenseGuard(async () => {
             }
         }
     );
-    
+
     // 窗口关闭时清理会话数据
     loginWindow.on('closed', () => {
         loginSession.clearStorageData();
         loginSession.clearCache();
         loginWindow = null;
     });
-    
+
     // 加载蒲公英首页
     loginWindow.loadURL('https://pgy.xiaohongshu.com/');
-    
+
     return { success: true, message: '登录窗口已打开，请在浏览器中登录' };
 }));
 
@@ -1311,7 +1344,7 @@ ipcMain.handle('open-blogger-detail', withLicenseGuard(async (event, url, cookie
     const partition = `memory-detail-${Date.now()}-${detailSessionCounter}`;
     const { session } = require('electron');
     const detailSession = session.fromPartition(partition, { cache: false });
-    
+
     const detailWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -1323,10 +1356,10 @@ ipcMain.handle('open-blogger-detail', withLicenseGuard(async (event, url, cookie
         parent: mainWindow,
         title: '博主详情'
     });
-    
+
     // 设置 cookies
     const cookiePairs = cookies.split(';').map(c => c.trim()).filter(c => c);
-    
+
     for (const pair of cookiePairs) {
         const [name, ...valueParts] = pair.split('=');
         const value = valueParts.join('=');
@@ -1343,13 +1376,13 @@ ipcMain.handle('open-blogger-detail', withLicenseGuard(async (event, url, cookie
             }
         }
     }
-    
+
     // 窗口关闭时清理会话
     detailWindow.on('closed', () => {
         detailSession.clearStorageData();
         detailSession.clearCache();
     });
-    
+
     detailWindow.loadURL(url);
     return { success: true };
 }));
@@ -1539,11 +1572,11 @@ ipcMain.handle('password-login-pgy', withLicenseGuard(async (event, email, passw
             // 等待登录完成，轮询检查cookies
             let attempts = 0;
             const maxAttempts = 30;
-            
+
             const checkLogin = async () => {
                 if (settled) return;
                 attempts++;
-                
+
                 if (attempts > maxAttempts) {
                     finish({ success: false, message: '登录超时，请检查账号密码是否正确' });
                     return;
@@ -1738,11 +1771,11 @@ ipcMain.handle('refresh-account-cookies', withLicenseGuard(async (event, email, 
             // 轮询检查登录状态
             let attempts = 0;
             const maxAttempts = 30;
-            
+
             const checkLogin = async () => {
                 if (settled) return;
                 attempts++;
-                
+
                 if (attempts > maxAttempts) {
                     finish({ success: false, message: '更新超时，请检查账号密码是否正确' });
                     return;
@@ -1844,7 +1877,7 @@ ipcMain.handle('enter-main-app', async () => {
                 });
             }
         });
-        
+
         // 关闭激活窗口，打开主窗口
         if (activationWindow && !activationWindow.isDestroyed()) {
             activationWindow.close();

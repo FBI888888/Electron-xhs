@@ -600,12 +600,61 @@ async function getRecentBrands(userId, cookies) {
     });
 }
 
+/**
+ * 获取核心数据的 cpuv (外溢进店单价)
+ */
+async function getCoreDataCpuv(userId, cookies) {
+    try {
+        const getCpuv = async (dateType) => {
+            return withRetry(async () => {
+                const url = `https://pgy.xiaohongshu.com/api/pgy/kol/data/core_data`;
+                const body = JSON.stringify({
+                    userId: userId,
+                    business: 1,
+                    noteType: 3,
+                    dateType: dateType,
+                    advertiseSwitch: 1
+                });
+                const options = getRequestOptions(url, cookies, 'POST', body);
+                
+                try {
+                    const response = await makeRequest(options, body);
+                    if (response.statusCode === 200) {
+                        const result = JSON.parse(response.data);
+                        if (result.code === 0 && result.success) {
+                            const cpuv = result.data?.sumData?.cpuv || 0;
+                            return { success: true, cpuv: Number(cpuv).toFixed(2) };
+                        }
+                    }
+                    return { success: false, cpuv: '0.00' };
+                } catch(e) {
+                    return { success: false, cpuv: '0.00' };
+                }
+            });
+        };
+
+        const [r30, r90] = await Promise.all([getCpuv(1), getCpuv(2)]);
+        
+        return {
+            success: true,
+            message: '核心数据采集成功',
+            data: {
+                '笔记数据-合作笔记-图文+视频-近30天-全流量-外溢进店单价': r30.success ? r30.cpuv : '0.00',
+                '笔记数据-合作笔记-图文+视频-近90天-全流量-外溢进店单价': r90.success ? r90.cpuv : '0.00'
+            }
+        };
+    } catch(e) {
+        return { success: false, message: `外溢进店单价抓取异常: ${e.message}` };
+    }
+}
+
 module.exports = {
     getBloggerInfo,
     getDataSummary,
     getFansSummary,
     getFansProfile,
     getRecentBrands,
+    getCoreDataCpuv,
     getRequestOptions,
     makeRequest,
     getSignHeaders
