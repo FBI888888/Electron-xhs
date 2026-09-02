@@ -1,20 +1,26 @@
 [
   {
+    "id": "legacy-account-1",
     "remark": "密码登陆测试",
-    "nickName": "杭州中大数云科技有限公司",
-    "status": "正常",
-    "cookies": "acw_tc=0a00077317744316432478112e07264ff865db7cb4adbadb1de5fccbc0652f; acw_tc=0a0d092517744316443112065e1c023d1a8eff924f0dd3504789b940d5ecae; xsecappid=ratlin; loadts=1774431648686; a1=19d245e3bafr7ubqf4r33t50r9x932aikioans0mu50000338409; webId=edc36258160e2411564f025b3756098c; acw_tc=0a00077317744316487374387e0723f21a2c441bf0c7c71c4a90e7cacaba13; websectiga=f47eda31ec99545da40c2f731f0630efd2b0959e1dd10d5fedac3dce0bd1e04d; sec_poison_id=111ee16b-3eb4-401b-a3ca-1baeccbf09f5; gid=yjfJ42d4SjTWyjfJ42dqD3M80iFW7DAi4Fqql67928FjC028jqJ03I888qqY48j80J00YiJD; customer-sso-sid=68c517621125931672158211z88mmz5vvk3aso0o; x-user-id-pgy.xiaohongshu.com=66063984e300000000000001; customerClientId=756194068133394; solar.beaker.session.id=AT-68c517621125931672059907zjpm1gsuivjyxabi; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c517621125931672059907zjpm1gsuivjyxabi; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c517621125931672059907zjpm1gsuivjyxabi",
-    "email": "leil@wzgroup.cn",
-    "password": "091625Lara!",
-    "last_use_date": "2026-03-25",
-    "today_use_count": 2
+    "nickname": "杭州中大数云科技有限公司",
+    "cookies": "enc:v1:djEw8KdG18BZ5RW4G1tJQEn/ySbt3dtmXDn0QJd7F0/2y0MpGeA0gM6QiTgkvRIswg8bm6iJCwoRo00B5xpyP1wQL2A3ImrlgqVD4o8Eh/TX/Nd52Lasi4i7uQ1njA9UGmlKNtB4wl70p9Fl2b3NpDGt4WD4ka8IMaOXIBfwuivyjBs0u2coKS79VcaawSA9FT9UYkM1S+LpxPK3kndpNCVzU7oAHvsoTFvHnQ3w0SQGsipnorRoWt/Am24YBVm8u1dIa9s7VIc3TzeI+TjbcXpTYm1XCzMqMOu2kKiaaLfdIDjZCL2AVgwoAcLUotbmYvG2n5lhnO6NstBZYVQ5d+XzjIXl5sY+QPFp+JqKpehcp3Om0/luVinuwR+ep0Cf1r3gWN8f/Ngl5Rt6OlsEV/i2aeDdUeM00z76UZbXflUgKB1QwG26w5QAwhJQ65EDAuPcmAphUZT0rvy9W69b602MXw1VKFjLuznW0W4psqlkYSLeQWISJzltkaseZwIUONwF3KcRUD7yMWeyqaqwm9D7MqH2u+GQK2sR3b3iaACeRZaT+N6UyXKCLAFald3CM7dsEZntodQ+B74W/yXmdVOtAhL41n8TRQ8LtnDP7v7+bP3JQ9TS47rrb/vjDdlTohzZkKzNHMkf+3na09a9Gfp/Mq9a9TDDGKvANaEUCFm0brgpyj1q0GZSgV26YxCshGlXbwnF6LISkxoRv+9su+Hr/6E6mItYkd0QAJRXlpolmyQ5UTr0GcEcPL3OisYzYG3TiUtPD0DIip/Q4kc1iTRERe92yszpEwGtlobgp5f4fiGlHHaQltEeSY0pIj1NaYHWuis7+OGKFmuPD9B6tmRmgjcAmAr3YIMnwjqU+ZCC+camemH40Xlk5jl4BCVJms/afTqfGsvCfzOX00qR91rdq0nzN3qWVnVpuvzrXIbGTTyhjXg6WK6zduIZZhbeMLEicvYNTALp7hzagEMpJ3m1LWHZAPqrp/XorFC4TiifE+anIyKHw2HlQ11G0h5zAulUo7uyBI0kdP91K2hlVD33rRTVhq0zBHgF2txtfdMfMQptqA00iVXw6NGt+NgZduNtFpZKRGNfn2XqUY+xbAoa7rmcevnG3y6gyWz6LsMTPejEhdo+mQ3SQ/s7rwiLKfQbeLKIqDKEreuRkOus2a53Sfz3N0A7u3dhv9VdXMjiYP0qKZBbMcQx9M/46SRy1OSkXXoVOcdlAjNOSvjnGZjIiANIKfaYY8Bw9g/4Xvd69VDysUTMjKG6g5uSEM/U720PWU/vo20wbAF+WxGi4gg7FrC7QpYxd+kws+1ytA==",
+    "status": "expired",
+    "email": "enc:v1:djEwgN0LyBJTZ3zavU6/oMKYFF+9l0WP2ozkW/SBxF64fnyfku4Z2F4TgCttug==",
+    "password": "enc:v1:djEwTaZDY+jXhyzO+vR1yEznStPPImxut1EIVEFK+rgZ3sPVuF8JhfL0",
+    "lastUseDate": "2026-03-25",
+    "todayUseCount": 2,
+    "createdAt": "2026-07-20T05:38:31.139Z",
+    "updatedAt": "2026-08-03T15:20:46.493Z"
   },
   {
+    "id": "legacy-account-2",
     "remark": "测试",
-    "nickName": "杭州智家品牌管理有限公司",
-    "status": "正常",
-    "cookies": "acw_tc=0a00071517744505743016696e18c5a4175e68f622b50fb8cd18f18fd5c5aa; a1=19d257f119068zb8n5g10g0gpotlpfqy3918sds6u50000107899; webId=c6981e881761b1d96168eab70b39fda0; gid=yjfJ2WiyW0qJyjfJ2WiyyjfMj8KYuDYI2ky8yK7k8kUl9Y281UiAvM888y8WYjj8j2Kydqj4; customerClientId=847559252900630; xsecappid=ratlin; websectiga=9730ffafd96f2d09dc024760e253af6ab1feb0002827740b95a255ddf6847fc8; sec_poison_id=2033a92f-343c-42bf-9655-52d941e3618f; customer-sso-sid=68c517621212917644673025zhjffd5quzxlgvnc; x-user-id-pgy.xiaohongshu.com=65d5ca10e300000000000001; solar.beaker.session.id=AT-68c517621212917644689409otguh8xzf0mgj0f2; access-token-pgy.xiaohongshu.com=customer.pgy.AT-68c517621212917644689409otguh8xzf0mgj0f2; access-token-pgy.beta.xiaohongshu.com=customer.pgy.AT-68c517621212917644689409otguh8xzf0mgj0f2; loadts=1774452039044",
-    "last_use_date": "2026-03-25",
-    "today_use_count": 2
+    "nickname": "杭州智家品牌管理有限公司",
+    "cookies": "enc:v1:djEw3ekhF7ZdLJWGz4kvehPzWY8ld3/sEIn6V8EABSU+FO7U+dl2uYpcSc0p0sih5Kv8eGHsQCOJgPo15D8nh2Okf9NBryjkgwtdPlGJsjpdhoAENA7IBZTyrfloJiQZ6kXpdtd4Vx/ERBPxe1sKpqUj5fD4+3Ve0osQccnvgxphNyytlobbtY+6/erhhlgzg2BPch1gtozH614RwI/V1r7tB3buuk7EqWh0GoTQigEgXedlwcL2lW5+y1ODChYYTAWWqMs+VGp9FAax3Pt/85D1L1ePZx6Q6bzZX3jm/+YdQz1CgGwxlvAOSm5uDVpeN/vWX8rsbB5UIBzfrIJfVgTWMhnmeq6gO1idrBPRdTXgmixzXduvFrV98Ad/tE40kZWzWEycjt/uIumcVSXxGXGPx3KSqDLLyRRoDAs1v6z0V9VXNMACEc5lalCY0C0WRDoV3yBnoIxbf7z3gLf34de05gFmMY28Pz6ty0Sa+guUX6yy4ZgpgECkiOlmGYG3h2hIUmGVRJrl0Sk2Ownb0qCTxyzzl9gpd6vI+awO3jWyo1ZF+q+39NXFc2xm5KoioHutMkV10+rAJV30gQXlqKLxuHGT7rvR1aqTe6gjVR1KISBph9x87lO/gkcvW1Pr4Hnvrg8Ujqw0Jwo9cu/tx/dWIWovlk0ctxViak+wHu8sTMKbJcMkGZj0X940NLlbd7N8gxlMgLFfiRy9KQizAIfhBge1H9WdX3rC/YOtGwm5ALQpDyi0pt6VAs6SZkeVDSt03hLRkOyU6IQL7svW3EP9a/1Vnb3vHP0JQurLp3/w+o8kK0ylGZc3tw/7UJkR92eRzxPZVQvr/kTvmt2TSuHiNqP3ngbgFNo4GnalLgBp9GC1cugaFMYjMpPr4fQbBKteMRjNcaVT75RZbkCOptR7wzbOsNCkHD5SjnyFZFrLs0pcU8F4XaOWWMF+UYjGwAHHF8spZeMkzZWrgCItmTIVcxSNtjqNdnSWkxDpQ5hXSdX7JdaQQFOSa4/gVwWlJofcTFu5iTeCwEGYIJoL0Gb38TzPQp6aPGA0lYWKiaekf7OKrynlFz3QwLhz2X7nS6rumQaloMJeCujA5C3mw3JNpwFkpqOwAxwhnjImqHUR",
+    "status": "expired",
+    "lastUseDate": "2026-03-25",
+    "todayUseCount": 2,
+    "createdAt": "2026-07-20T05:38:31.139Z",
+    "updatedAt": "2026-08-03T15:20:46.542Z"
   }
 ]

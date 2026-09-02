@@ -1,24 +1,51 @@
 {
   "name": "xhs-collector",
   "version": "1.6.0",
-  "description": "蒲公英达人采集管理系统 V1.6.0",
-  "main": "main.js",
+  "description": "蒲公英达人数据采集与快照管理工具",
+  "main": "out/main/index.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
-    "build": "electron-builder --win --mac",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:dir": "electron-builder --dir"
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint src electron.vite.config.ts vitest.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "npm run typecheck && electron-vite build && electron-builder --win --mac",
+    "build:app": "npm run typecheck && electron-vite build",
+    "build:win": "npm run typecheck && electron-vite build && electron-builder --win",
+    "build:mac": "npm run typecheck && electron-vite build && electron-builder --mac",
+    "build:dir": "npm run typecheck && electron-vite build && electron-builder --dir"
   },
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
-  },
   "dependencies": {
-    "xlsx": "^0.18.5"
+    "@tanstack/react-table": "8.21.3",
+    "lucide-react": "1.25.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-router-dom": "7.18.1",
+    "xlsx": "0.18.5",
+    "zod": "4.4.3",
+    "zustand": "5.0.14"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "43.1.1",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "eslint": "10.7.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.3",
+    "globals": "17.7.0",
+    "prettier": "3.9.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0",
+    "vite": "7.3.6",
+    "vitest": "4.1.10"
   },
   "build": {
     "appId": "com.xhs.collector",
@@ -27,23 +54,23 @@
       "output": "dist"
     },
     "files": [
-      "main.js",
-      "index.html",
-      "activation.html",
-      "renderer/**/*",
+      "out/**/*",
       "main/**/*",
-      "styles/**/*",
       "node_modules/**/*"
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "logo.ico"
@@ -52,7 +79,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "category": "public.app-category.productivity"
@@ -60,8 +90,16 @@
     "dmg": {
       "title": "XHS-Collector",
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "nsis": {

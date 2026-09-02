@@ -1,0 +1,8 @@
+dist
+out
+node_modules
+data
+auth-server
+main.js
+renderer
+styles

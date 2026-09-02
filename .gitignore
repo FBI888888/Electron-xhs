@@ -4,9 +4,22 @@ node_modules/
 # Build output
 dist/
 build/
+out/
+coverage/
+*.tsbuildinfo
 
 # Electron builder cache
 .electron-builder-cache/
+
+# Runtime data and browser sessions
+data/*.json
+data/*.bak
+data/*.legacy.bak
+data/sessionData/
+data/userData/
+data/cache/
+data/logs/
+data/temp/
 
 # Logs
 *.log
@@ -21,6 +34,3 @@ npm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
-
-# Data files (optional - uncomment if you don't want to track data)
-# data/*.json
