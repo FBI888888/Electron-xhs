@@ -1,26 +1,12 @@
 [
   {
-    "id": "legacy-account-1",
-    "remark": "密码登陆测试",
-    "nickname": "杭州中大数云科技有限公司",
-    "cookies": "enc:v1:djEw8KdG18BZ5RW4G1tJQEn/ySbt3dtmXDn0QJd7F0/2y0MpGeA0gM6QiTgkvRIswg8bm6iJCwoRo00B5xpyP1wQL2A3ImrlgqVD4o8Eh/TX/Nd52Lasi4i7uQ1njA9UGmlKNtB4wl70p9Fl2b3NpDGt4WD4ka8IMaOXIBfwuivyjBs0u2coKS79VcaawSA9FT9UYkM1S+LpxPK3kndpNCVzU7oAHvsoTFvHnQ3w0SQGsipnorRoWt/Am24YBVm8u1dIa9s7VIc3TzeI+TjbcXpTYm1XCzMqMOu2kKiaaLfdIDjZCL2AVgwoAcLUotbmYvG2n5lhnO6NstBZYVQ5d+XzjIXl5sY+QPFp+JqKpehcp3Om0/luVinuwR+ep0Cf1r3gWN8f/Ngl5Rt6OlsEV/i2aeDdUeM00z76UZbXflUgKB1QwG26w5QAwhJQ65EDAuPcmAphUZT0rvy9W69b602MXw1VKFjLuznW0W4psqlkYSLeQWISJzltkaseZwIUONwF3KcRUD7yMWeyqaqwm9D7MqH2u+GQK2sR3b3iaACeRZaT+N6UyXKCLAFald3CM7dsEZntodQ+B74W/yXmdVOtAhL41n8TRQ8LtnDP7v7+bP3JQ9TS47rrb/vjDdlTohzZkKzNHMkf+3na09a9Gfp/Mq9a9TDDGKvANaEUCFm0brgpyj1q0GZSgV26YxCshGlXbwnF6LISkxoRv+9su+Hr/6E6mItYkd0QAJRXlpolmyQ5UTr0GcEcPL3OisYzYG3TiUtPD0DIip/Q4kc1iTRERe92yszpEwGtlobgp5f4fiGlHHaQltEeSY0pIj1NaYHWuis7+OGKFmuPD9B6tmRmgjcAmAr3YIMnwjqU+ZCC+camemH40Xlk5jl4BCVJms/afTqfGsvCfzOX00qR91rdq0nzN3qWVnVpuvzrXIbGTTyhjXg6WK6zduIZZhbeMLEicvYNTALp7hzagEMpJ3m1LWHZAPqrp/XorFC4TiifE+anIyKHw2HlQ11G0h5zAulUo7uyBI0kdP91K2hlVD33rRTVhq0zBHgF2txtfdMfMQptqA00iVXw6NGt+NgZduNtFpZKRGNfn2XqUY+xbAoa7rmcevnG3y6gyWz6LsMTPejEhdo+mQ3SQ/s7rwiLKfQbeLKIqDKEreuRkOus2a53Sfz3N0A7u3dhv9VdXMjiYP0qKZBbMcQx9M/46SRy1OSkXXoVOcdlAjNOSvjnGZjIiANIKfaYY8Bw9g/4Xvd69VDysUTMjKG6g5uSEM/U720PWU/vo20wbAF+WxGi4gg7FrC7QpYxd+kws+1ytA==",
-    "status": "expired",
-    "email": "enc:v1:djEwgN0LyBJTZ3zavU6/oMKYFF+9l0WP2ozkW/SBxF64fnyfku4Z2F4TgCttug==",
-    "password": "enc:v1:djEwTaZDY+jXhyzO+vR1yEznStPPImxut1EIVEFK+rgZ3sPVuF8JhfL0",
-    "lastUseDate": "2026-03-25",
-    "todayUseCount": 2,
-    "createdAt": "2026-07-20T05:38:31.139Z",
-    "updatedAt": "2026-08-03T15:20:46.493Z"
-  },
-  {
-    "id": "legacy-account-2",
-    "remark": "测试",
-    "nickname": "杭州智家品牌管理有限公司",
-    "cookies": "enc:v1:djEw3ekhF7ZdLJWGz4kvehPzWY8ld3/sEIn6V8EABSU+FO7U+dl2uYpcSc0p0sih5Kv8eGHsQCOJgPo15D8nh2Okf9NBryjkgwtdPlGJsjpdhoAENA7IBZTyrfloJiQZ6kXpdtd4Vx/ERBPxe1sKpqUj5fD4+3Ve0osQccnvgxphNyytlobbtY+6/erhhlgzg2BPch1gtozH614RwI/V1r7tB3buuk7EqWh0GoTQigEgXedlwcL2lW5+y1ODChYYTAWWqMs+VGp9FAax3Pt/85D1L1ePZx6Q6bzZX3jm/+YdQz1CgGwxlvAOSm5uDVpeN/vWX8rsbB5UIBzfrIJfVgTWMhnmeq6gO1idrBPRdTXgmixzXduvFrV98Ad/tE40kZWzWEycjt/uIumcVSXxGXGPx3KSqDLLyRRoDAs1v6z0V9VXNMACEc5lalCY0C0WRDoV3yBnoIxbf7z3gLf34de05gFmMY28Pz6ty0Sa+guUX6yy4ZgpgECkiOlmGYG3h2hIUmGVRJrl0Sk2Ownb0qCTxyzzl9gpd6vI+awO3jWyo1ZF+q+39NXFc2xm5KoioHutMkV10+rAJV30gQXlqKLxuHGT7rvR1aqTe6gjVR1KISBph9x87lO/gkcvW1Pr4Hnvrg8Ujqw0Jwo9cu/tx/dWIWovlk0ctxViak+wHu8sTMKbJcMkGZj0X940NLlbd7N8gxlMgLFfiRy9KQizAIfhBge1H9WdX3rC/YOtGwm5ALQpDyi0pt6VAs6SZkeVDSt03hLRkOyU6IQL7svW3EP9a/1Vnb3vHP0JQurLp3/w+o8kK0ylGZc3tw/7UJkR92eRzxPZVQvr/kTvmt2TSuHiNqP3ngbgFNo4GnalLgBp9GC1cugaFMYjMpPr4fQbBKteMRjNcaVT75RZbkCOptR7wzbOsNCkHD5SjnyFZFrLs0pcU8F4XaOWWMF+UYjGwAHHF8spZeMkzZWrgCItmTIVcxSNtjqNdnSWkxDpQ5hXSdX7JdaQQFOSa4/gVwWlJofcTFu5iTeCwEGYIJoL0Gb38TzPQp6aPGA0lYWKiaekf7OKrynlFz3QwLhz2X7nS6rumQaloMJeCujA5C3mw3JNpwFkpqOwAxwhnjImqHUR",
-    "status": "expired",
-    "lastUseDate": "2026-03-25",
-    "todayUseCount": 2,
-    "createdAt": "2026-07-20T05:38:31.139Z",
-    "updatedAt": "2026-08-03T15:20:46.542Z"
+    "id": "6dad4945-0f5f-4757-851b-c105daedd090",
+    "remark": "网页登录账号",
+    "nickname": "北京野猴文化有限公司",
+    "cookies": "enc:v1:djEwpLnDGUhDJ2Obnb9wzAsFqI1QSa2L9yGzzPHWGyXD20danZ4FN1whJg+Sf9ezyGYBjphYP1yMuWOp39zcx81PGAvhgXFLXGFY9Ui/4yTzN5cn8mjjYGFqo0eqVu7k4WE7LO6BIPLmXalvX4HtATuSMcj/FJofqsTqxQLC0m97MTllvWFK6s58VufcK7HQYxwoPL4EaFu7bk/PuW6gYdzduUhf82448+WFrhii1S50SaZ1S3ksnMZHCc5DjA1KNRR9H8Cingsvd0RxfuXeaICNcPohvlMwDW+eotgkjtpR9gyM2C/Fi9JtTksppQkCdlgNQiFJhyZG+hpDbvnrY1VP6b0AmnsSaN7pxzjuXe2in+VDVQfOz2H66yweQ41zerjtezT2Bn6hoS9ncrwGqp9mpHs2tk7YhNWALO44mTJvVp+tZdXHHhjYCH6aprNgr15Ceb7zr4v1miikkROD/i4TVGLbVD3V4hcAtx4E6ArPAcoLV79c9raweCr/nMEjXIgrCxg1SZWfUbT2TOs8DIbMbu1r8cPAwhnLleacf0lB04QH71gObo77FDu/HBuq7kcqwWAcN5z6wXlus5EKcYyyv/SCoYuSjffVi8FA4DUEl7dAtjXOsXL4F4iRG1tul82Lmx24sYLrBM2wLLdK9VPzYFzQTjsWXA5KgJ71dNVCeukpyCs+DIzz1zVxW2bxWSQZO6o8wjQyq9YR2PKMHDpSrgCImw4EG221umGpB7l3VFgubAXXjf0VKt3m7pO2bUF7Q02e2ld6jiIBmz1ehM0NQxryIW3//VhWmvdqDQF0vnAMCMEc5V/7rlQ9MVruHx7E/Qj6HA6mvQfu3T/MhKzyYYMx2L+SO2DtNkqfElLkzKLkZEpXli84iCB/THlTX56clx8VoODwjbuOP99PLE77j5J7uEUXBySqOb3SUH1tTp7aGkHYjJ1NeRwlTT2zrl956LlhtCn652QVlxBZs2sf0/m/quuv8iUbxzEuu9MUtcJIgm/CkARHHygCzkcemsJ0B1+qzyb49EOqCbnpqMfkl/DjMvFGxH1ROFCSWLpLGy4tDZ0MmeFycwTRNqfmo7NJDvasKKVe1LsWUtH8q0V6I0XB8aRmDCgmB0E3g1RZ",
+    "status": "active",
+    "todayUseCount": 0,
+    "createdAt": "2026-09-02T02:38:14.422Z",
+    "updatedAt": "2026-09-02T04:42:15.820Z"
   }
 ]

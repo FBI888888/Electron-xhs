@@ -1,17 +1,21 @@
 name: Build Electron App
 
 on:
-  # 手动触发
   workflow_dispatch:
-  # 推送到 main 分支时触发
   push:
     branches: [ main ]
     tags:
-      - 'v*'  # 推送版本标签时触发，如 v1.0.0
+      - 'v*'
+
+permissions:
+  contents: write
+  actions: write
 
 jobs:
   build:
+    timeout-minutes: 60
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -28,7 +32,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -39,6 +43,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: List dist output
+        if: always()
+        shell: bash
+        run: ls -la dist || true
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -47,12 +56,15 @@ jobs:
             dist/*.exe
             dist/*.dmg
             dist/*.zip
+            dist/**/*.exe
+            dist/**/*.dmg
+            dist/**/*.zip
+          if-no-files-found: error
           retention-days: 30
 
-  # 创建 Release（仅在推送 tag 时）
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -69,10 +81,12 @@ jobs:
           path: dist
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || format('Build {0}', github.run_number) }}
           files: dist/*
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && github.ref_type != 'tag' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
