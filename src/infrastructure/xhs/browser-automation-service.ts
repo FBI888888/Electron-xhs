@@ -298,6 +298,7 @@ export class BrowserAutomationService {
     const items = rawItems.map((raw: Record<string, any>) => ({
       userId: String(raw.userId ?? raw.kolId ?? raw.id ?? ''),
       name: String(raw.name ?? raw.nickName ?? ''),
+      avatarUrl: String(raw.headPhoto ?? raw.avatar ?? raw.image ?? raw.imageb ?? raw.headImage ?? raw.avatarUrl ?? ''),
       location: String(raw.location ?? ''),
       fansCount: Number(raw.fansCount ?? raw.fansNum ?? 0),
       picturePrice: Number(raw.picturePrice ?? 0),

@@ -170,6 +170,7 @@ export interface LinkConversionItem {
 export interface BloggerListItem {
   userId: string
   name: string
+  avatarUrl?: string
   location?: string
   fansCount?: number
   picturePrice?: number

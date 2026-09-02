@@ -33,6 +33,7 @@ export const AccountsPage = () => {
   const pushToast = useToastStore((state) => state.push)
   const [editing, setEditing] = useState<AccountEditor | null>(null)
   const [loginDraft, setLoginDraft] = useState<PasswordLoginInput | null>(null)
+  const [webRemark, setWebRemark] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [sessionEvent, setSessionEvent] = useState<AccountSessionEvent | null>(null)
   const activeCount = useMemo(
@@ -43,7 +44,7 @@ export const AccountsPage = () => {
   useEffect(
     () =>
       window.desktop.accounts.onSessionEvent((event) => {
-        setSessionEvent(event)
+        setSessionEvent(['failed', 'completed'].includes(event.stage) ? null : event)
         if (event.accounts) setAccounts(event.accounts)
         if (event.account) {
           setAccounts([
@@ -60,10 +61,18 @@ export const AccountsPage = () => {
     setAccounts([...current.filter((item) => item.id !== account.id), account])
   }
 
-  const openWebLogin = async (): Promise<void> => {
+  const openWebLogin = (): void => setWebRemark('')
+
+  const confirmWebLogin = async (): Promise<void> => {
+    const remark = webRemark?.trim() ?? ''
+    if (!remark) {
+      pushToast({ kind: 'warning', title: '无法打开登录', message: '请先输入账号备注' })
+      return
+    }
+    setWebRemark(null)
     setBusy('web-login')
     pushToast({ kind: 'info', title: '正在打开登录窗口', message: '正在验证授权并创建安全登录会话' })
-    const result = await window.desktop.accounts.openLogin()
+    const result = await window.desktop.accounts.openLogin(remark)
     setBusy(null)
     if (!result.ok) {
       pushToast({ kind: 'error', title: '无法打开登录窗口', message: result.error.message })
@@ -310,6 +319,31 @@ export const AccountsPage = () => {
       </Dialog>
 
       <Dialog
+        open={webRemark !== null}
+        title="网页登录"
+        onClose={() => setWebRemark(null)}
+        footer={
+          <>
+            <Button onClick={() => setWebRemark(null)}>取消</Button>
+            <Button variant="primary" disabled={!webRemark?.trim() || busy === 'web-login'} onClick={() => void confirmWebLogin()}>
+              打开登录窗口
+            </Button>
+          </>
+        }
+      >
+        <label className="field">
+          <span>账号备注</span>
+          <input
+            autoFocus
+            value={webRemark ?? ''}
+            onChange={(event) => setWebRemark(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && void confirmWebLogin()}
+            placeholder="例如：主账号 A"
+          />
+        </label>
+      </Dialog>
+
+      <Dialog
         open={Boolean(loginDraft)}
         title="账号密码自动登录"
         onClose={() => void closePasswordLogin()}
@@ -327,7 +361,7 @@ export const AccountsPage = () => {
             <label className="field"><span>备注名称</span><input value={loginDraft.remark} onChange={(event) => setLoginDraft({ ...loginDraft, remark: event.target.value })} /></label>
             <label className="field"><span>邮箱账号</span><input value={loginDraft.email} onChange={(event) => setLoginDraft({ ...loginDraft, email: event.target.value })} /></label>
             <label className="field field--full"><span>登录密码</span><input type="password" value={loginDraft.password} onChange={(event) => setLoginDraft({ ...loginDraft, password: event.target.value })} /></label>
-            <p className="muted-copy">登录过程在独立隔离会话中执行；页面结构变化时会显示窗口，允许手动完成验证。</p>
+            <p className="muted-copy">登录过程在独立隔离会话中执行；提交后会打开窗口，便于完成验证码或二次验证。</p>
           </div>
         )}
       </Dialog>

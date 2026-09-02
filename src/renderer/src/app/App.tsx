@@ -14,6 +14,8 @@ import { BloggersPage } from '@renderer/pages/BloggersPage'
 import { InvitesPage } from '@renderer/pages/InvitesPage'
 import { SettingsPage } from '@renderer/pages/SettingsPage'
 import { LicensePage } from '@renderer/pages/LicensePage'
+import { AboutPage } from '@renderer/pages/AboutPage'
+import logo from '@renderer/assets/logo.png'
 
 export const App = () => {
   const initialize = useAppStore((state) => state.initialize)
@@ -68,7 +70,7 @@ export const App = () => {
   if (loading) {
     return (
       <div className="boot-screen">
-        <div className="boot-screen__mark">P</div>
+        <div className="boot-screen__mark"><img src={logo} alt="" /></div>
         <p>正在初始化本地数据与授权状态…</p>
       </div>
     )
@@ -95,12 +97,13 @@ export const App = () => {
           <Route path="invites" element={<InvitesPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="license" element={<LicensePage />} />
+          <Route path="about" element={<AboutPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
       <Dialog
         open={disclaimerOpen}
-        title="软件使用声明"
+        title="软件使用免责声明"
         onClose={() => undefined}
         footer={
           <>
@@ -118,9 +121,12 @@ export const App = () => {
         }
       >
         <div className="legal-copy">
-          <p>本软件用于采集用户已授权访问的小红书蒲公英达人数据并生成本地快照。</p>
-          <p>使用者应遵守法律法规、平台规则及账号授权范围，不得用于绕过权限、骚扰用户或其他违规用途。</p>
-          <p>继续使用表示您理解采集频率、账号状态和数据合规责任由实际使用者承担。</p>
+          <p>本软件仅提供公开信息采集工具功能，仅支持采集小红书蒲公英平台已公开的达人主页信息，不具备获取非公开数据的能力。</p>
+          <p>您承诺使用本软件时严格遵守《中华人民共和国网络安全法》《数据安全法》《个人信息保护法》等相关法律法规，以及小红书蒲公英平台的用户协议、社区规范等规则，不得用于任何违法违规用途。</p>
+          <p><strong>禁止利用本软件实施以下行为：</strong>采集非公开信息、过度爬取导致平台服务器负载异常、侵害他人隐私权/知识产权/商业秘密等合法权益、用于 spam 营销、诈骗等违法活动。</p>
+          <p>本软件仅为工具提供者，不对您使用软件的行为及结果承担责任。如因您违规使用软件导致的任何法律纠纷、行政处罚、第三方索赔等，均由您自行承担全部责任，与软件开发者无关。</p>
+          <p>如发现软件存在异常或有违规使用需求，开发者有权暂停或终止您的使用权限，且不承担任何赔偿责任。</p>
+          <p><strong>您使用本软件即表示已充分阅读、理解并同意本声明全部条款，若不同意请立即停止使用。</strong></p>
         </div>
       </Dialog>
       <ToastViewport />

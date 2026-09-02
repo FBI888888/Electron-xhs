@@ -13,9 +13,18 @@ export const LinksPage = () => {
   const [source, setSource] = useState('')
   const [items, setItems] = useState<LinkConversionItem[]>([])
   const [running, setRunning] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(false)
   const stopRef = useRef(false)
 
-  useEffect(() => window.desktop.links.onCookiesCaptured(() => pushToast({ kind: 'success', title: '小红书已登录', message: '登录凭据已安全保存' })), [pushToast])
+  useEffect(() => {
+    void window.desktop.links.hasCookies().then((result) => {
+      if (result.ok) setLoggedIn(result.data)
+    })
+    return window.desktop.links.onCookiesCaptured(() => {
+      setLoggedIn(true)
+      pushToast({ kind: 'success', title: '小红书已登录', message: '登录凭据已安全保存' })
+    })
+  }, [pushToast])
 
   const loadLinks = (text: string) => {
     const links = extractShortLinks(text)
@@ -79,7 +88,7 @@ export const LinksPage = () => {
 
   return (
     <div className="page">
-      <PageHeader title="链接转换" description="将分享短链接批量解析为稳定的达人主页链接。" actions={<><Button icon={<FileInput size={16} />} disabled={running} onClick={() => void importFile()}>文件导入</Button><Button icon={<LogIn size={16} />} onClick={() => void openLogin()}>小红书登录</Button><Button variant="primary" icon={<Play size={16} />} disabled={running || items.length === 0} onClick={() => void start()}>开始转换</Button>{running && <Button variant="danger" icon={<Square size={16} />} onClick={() => { stopRef.current = true }}>停止</Button>}<Button icon={<Download size={16} />} disabled={items.length === 0} onClick={() => void exportItems()}>导出</Button></>} />
+      <PageHeader title="链接转换" description="将分享短链接批量解析为稳定的达人主页链接。" actions={<><Button icon={<FileInput size={16} />} disabled={running} onClick={() => void importFile()}>文件导入</Button><Button icon={<LogIn size={16} />} onClick={() => void openLogin()}>{loggedIn ? '小红书已登录(更新)' : '小红书登录'}</Button><Button variant="primary" icon={<Play size={16} />} disabled={running || items.length === 0} onClick={() => void start()}>开始转换</Button>{running && <Button variant="danger" icon={<Square size={16} />} onClick={() => { stopRef.current = true }}>停止</Button>}<Button icon={<Download size={16} />} disabled={items.length === 0} onClick={() => void exportItems()}>导出</Button></>} />
       <div className="page-content split-workspace">
         <section className="input-panel"><div><span className="eyebrow">输入</span><h2>粘贴分享文案或短链接</h2><p>会自动提取并去重 `xhslink.com` 链接。</p></div><textarea value={source} onChange={(event) => setSource(event.target.value)} placeholder="每行一条，或直接粘贴整段分享文案" /><Button variant="primary" icon={<Link2 size={16} />} onClick={loadSource}>载入转换列表</Button></section>
         <section className="table-panel">

@@ -8,7 +8,8 @@ export const createMainWindow = (): BrowserWindow => {
     minWidth: 1000,
     minHeight: 700,
     show: false,
-    title: '蒲公英达人采集系统',
+    title: '蒲公英数据快照系统',
+    icon: join(__dirname, '../../logo.ico'),
     autoHideMenuBar: true,
     backgroundColor: '#f4f2ef',
     webPreferences: {

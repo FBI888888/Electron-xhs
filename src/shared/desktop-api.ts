@@ -38,7 +38,7 @@ export interface DesktopApi {
     remove: (accountId: string) => Promise<Result<void>>
     check: (accountId: string) => Promise<Result<AccountView>>
     checkAll: () => Promise<Result<AccountView[]>>
-    openLogin: () => Promise<Result<void>>
+    openLogin: (remark: string) => Promise<Result<void>>
     passwordLogin: (input: PasswordLoginInput) => Promise<Result<AccountView>>
     refresh: (accountId: string) => Promise<Result<AccountView>>
     cancelLogin: () => Promise<Result<void>>
@@ -62,6 +62,7 @@ export interface DesktopApi {
   links: {
     importItems: () => Promise<Result<string[]>>
     openLogin: () => Promise<Result<void>>
+    hasCookies: () => Promise<Result<boolean>>
     resolve: (shortUrl: string) => Promise<Result<LinkConversionItem>>
     export: (items: LinkConversionItem[]) => Promise<Result<string | null>>
     onCookiesCaptured: (listener: () => void) => () => void

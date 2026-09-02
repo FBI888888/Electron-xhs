@@ -36,7 +36,8 @@ export class PgyLoginDriver {
 
   async openWebLogin(
     onCaptured: (result: PgyLoginResult) => void,
-    onProgress: LoginProgress
+    onProgress: LoginProgress,
+    onDismissed?: () => void
   ): Promise<Result<void>> {
     if (this.webLoginWindow && !this.webLoginWindow.isDestroyed()) {
       this.webLoginWindow.show()
@@ -114,6 +115,7 @@ export class PgyLoginDriver {
       clearInterval(timer)
       void clearSession(loginSession)
       if (this.webLoginWindow === window) this.webLoginWindow = null
+      if (!captured) onDismissed?.()
     })
 
     try {
@@ -246,12 +248,12 @@ export class PgyLoginDriver {
             })(${credentials});
           `)) as boolean
 
+          window.show()
+          window.focus()
           if (!automated) {
-            window.show()
-            window.focus()
             onProgress('waiting', '页面结构已变化，请在打开的窗口中手动完成登录')
           } else {
-            onProgress('verifying', '登录已提交，正在验证 Cookies')
+            onProgress('waiting', '登录已提交，请在窗口中完成验证（如验证码）')
           }
 
           while (!settled) {

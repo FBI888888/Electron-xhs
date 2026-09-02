@@ -1,7 +1,7 @@
 {
   "name": "xhs-collector",
   "version": "1.6.0",
-  "description": "蒲公英达人数据采集与快照管理工具",
+  "description": "蒲公英数据快照系统",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -14,7 +14,8 @@
     "build:app": "npm run typecheck && electron-vite build",
     "build:win": "npm run typecheck && electron-vite build && electron-builder --win",
     "build:mac": "npm run typecheck && electron-vite build && electron-builder --mac",
-    "build:dir": "npm run typecheck && electron-vite build && electron-builder --dir"
+    "build:dir": "npm run typecheck && electron-vite build && electron-builder --dir",
+    "postinstall": "node scripts/ensure-electron.cjs"
   },
   "author": "",
   "license": "ISC",
@@ -49,13 +50,14 @@
   },
   "build": {
     "appId": "com.xhs.collector",
-    "productName": "蒲公英达人采集系统",
+    "productName": "蒲公英数据快照系统",
     "directories": {
       "output": "dist"
     },
     "files": [
       "out/**/*",
       "main/**/*",
+      "logo.ico",
       "node_modules/**/*"
     ],
     "win": {
@@ -76,6 +78,7 @@
       "icon": "logo.ico"
     },
     "mac": {
+      "icon": "build/icon.icns",
       "target": [
         {
           "target": "dmg",
@@ -88,7 +91,7 @@
       "category": "public.app-category.productivity"
     },
     "dmg": {
-      "title": "XHS-Collector",
+      "title": "蒲公英数据快照系统",
       "contents": [
         {
           "x": 130,
@@ -107,7 +110,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "蒲公英达人采集系统"
+      "shortcutName": "蒲公英数据快照系统"
     },
     "asar": true
   }

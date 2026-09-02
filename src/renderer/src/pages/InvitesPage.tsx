@@ -9,7 +9,7 @@ import { useAppStore, useToastStore } from '@renderer/store/app-store'
 
 export const InvitesPage = () => {
   const license = useAppStore((state) => state.license)
-  const accounts = useAppStore((state) => state.accounts.filter((account) => account.status === 'active'))
+  const accounts = useAppStore((state) => state.accounts).filter((account) => account.status === 'active')
   const setAccounts = useAppStore((state) => state.setAccounts)
   const pushToast = useToastStore((state) => state.push)
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
@@ -197,7 +197,7 @@ export const InvitesPage = () => {
       <div className="page-content invites-layout">
         <section className="invite-add"><input value={profileUrl} onChange={(event) => setProfileUrl(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && add()} placeholder="粘贴蒲公英达人详情页" /><Button variant="primary" icon={<Plus size={16} />} onClick={add}>添加达人</Button><span className={captured ? 'capture-state capture-state--ready' : 'capture-state'}>{captured ? '模板已就绪' : '等待首条邀约'}</span></section>
         <section className="table-panel">
-          {items.length === 0 ? <EmptyState title="暂无邀约对象" description="添加达人详情页后填写合作信息，再打开首条邀约捕获模板。" /> : <table className="data-table data-table--form"><thead><tr><th>达人主页</th><th>合作类型</th><th>产品名称</th><th>合作内容</th><th>联系方式</th><th>状态</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><code>{item.profileUrl}</code></td><td><select value={item.cooperationType} onChange={(event) => update(item.id, { cooperationType: event.target.value })}><option>图文合作</option><option>视频合作</option></select></td><td><input value={item.productName} onChange={(event) => update(item.id, { productName: event.target.value })} /></td><td><input value={item.content} onChange={(event) => update(item.id, { content: event.target.value })} /></td><td><input value={item.contact} onChange={(event) => update(item.id, { contact: event.target.value })} /></td><td><StatusBadge status={item.status} /><small>{item.message}</small></td></tr>)}</tbody></table>}
+          {items.length === 0 ? <EmptyState title="暂无邀约对象" description="添加达人详情页后填写合作信息，再打开首条邀约捕获模板。" /> : <table className="data-table data-table--form"><thead><tr><th>状态</th><th>账号昵称</th><th>达人主页</th><th>合作类型</th><th>产品名称</th><th>合作内容</th><th>联系方式</th><th>邀约时间</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><StatusBadge status={item.status} /><small>{item.message}</small></td><td>{item.accountNickname || '—'}</td><td><code>{item.profileUrl}</code></td><td><select value={item.cooperationType} onChange={(event) => update(item.id, { cooperationType: event.target.value })}><option>图文合作</option><option>视频合作</option></select></td><td><input value={item.productName} onChange={(event) => update(item.id, { productName: event.target.value })} /></td><td><input value={item.content} onChange={(event) => update(item.id, { content: event.target.value })} /></td><td><input value={item.contact} onChange={(event) => update(item.id, { contact: event.target.value })} /></td><td>{item.invitedAt ? new Date(item.invitedAt).toLocaleString('zh-CN') : '—'}</td></tr>)}</tbody></table>}
         </section>
       </div>
     </div>

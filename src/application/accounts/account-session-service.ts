@@ -21,7 +21,8 @@ type AccountStore = Pick<AccountRepository, 'list' | 'save'>
 type LoginDriver = Pick<PgyLoginDriver, 'cancel' | 'cancelAutomation'> & {
   openWebLogin: (
     onCaptured: (result: PgyLoginResult) => void,
-    onProgress: LoginProgress
+    onProgress: LoginProgress,
+    onDismissed?: () => void
   ) => Promise<Result<void>>
   passwordLogin: (
     email: string,
@@ -212,10 +213,12 @@ export class AccountSessionService {
     return ok(views)
   }
 
-  openWebLogin(): Promise<Result<void>> {
+  openWebLogin(remark: string): Promise<Result<void>> {
+    const accountRemark = remark.trim()
+    if (!accountRemark) return Promise.resolve(err('INVALID_INPUT', '请输入账号备注'))
     return this.loginDriver.openWebLogin(
       (captured) => {
-        void this.saveCapturedWebAccount(captured.cookies, captured.nickname).catch((error) =>
+        void this.saveCapturedWebAccount(captured.cookies, captured.nickname, accountRemark).catch((error) =>
           this.emit({
             operation: 'web-login',
             stage: 'failed',
@@ -223,7 +226,8 @@ export class AccountSessionService {
           })
         )
       },
-      (stage, message) => this.emit({ operation: 'web-login', stage, message })
+      (stage, message) => this.emit({ operation: 'web-login', stage, message }),
+      () => this.emit({ operation: 'web-login', stage: 'failed', message: '登录窗口已关闭，未完成登录' })
     )
   }
 
@@ -347,15 +351,15 @@ export class AccountSessionService {
     return ok(refreshed)
   }
 
-  private async saveCapturedWebAccount(cookies: string, nickname: string): Promise<void> {
+  private async saveCapturedWebAccount(cookies: string, nickname: string, remark: string): Promise<void> {
     const accounts = await this.repository.list()
     const now = new Date().toISOString()
     const duplicate = accounts.find((account) => account.cookies === cookies)
     const account: Account = duplicate
-      ? { ...duplicate, nickname: nickname || duplicate.nickname, status: 'active', updatedAt: now }
+      ? { ...duplicate, remark: remark || duplicate.remark, nickname: nickname || duplicate.nickname, status: 'active', updatedAt: now }
       : {
           id: randomUUID(),
-          remark: '网页登录账号',
+          remark,
           nickname,
           cookies,
           status: 'active',

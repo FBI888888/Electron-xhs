@@ -59,7 +59,7 @@ export const SettingsPage = () => {
         </section>
 
         <section className="settings-section settings-section--vertical">
-          <div className="settings-section__heading"><span className="eyebrow">字段范围</span><h2>数据表现组合</h2><p>共选择 {draft.performanceFields.length} / {PERFORMANCE_FIELDS.length} 组。</p></div>
+          <div className="settings-section__heading"><span className="eyebrow">字段范围</span><h2>数据表现组合</h2><p>共选择 {draft.performanceFields.length} / {PERFORMANCE_FIELDS.length} 组。</p><div className="settings-section__actions"><Button onClick={() => setDraft({ ...draft, performanceFields: PERFORMANCE_FIELDS.map((field) => field.id) })}>全选</Button><Button onClick={() => setDraft({ ...draft, performanceFields: [] })}>取消全选</Button></div></div>
           <div className="field-matrix">
             {(['daily', 'cooperation'] as const).map((business) => (
               <div key={business} className="field-matrix__group"><h3>{business === 'daily' ? '日常笔记' : '合作笔记'}</h3><div>{PERFORMANCE_FIELDS.filter((field) => field.business === business).map((field) => <label key={field.id} className="choice-card"><input type="checkbox" checked={draft.performanceFields.includes(field.id)} onChange={() => toggleField(field.id)} /><span>{field.label.replace(`${business === 'daily' ? '日常笔记' : '合作笔记'}-`, '')}</span></label>)}</div></div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { KeyRound, LoaderCircle } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { useAppStore, useToastStore } from '@renderer/store/app-store'
+import logo from '@renderer/assets/logo.png'
 
 export const ActivationPage = () => {
   const [licenseKey, setLicenseKey] = useState('')
@@ -32,9 +33,9 @@ export const ActivationPage = () => {
     <main className="activation-page">
       <section className="activation-panel">
         <div className="activation-panel__brand">
-          <div className="brand__mark brand__mark--large">P</div>
+          <div className="brand__mark brand__mark--large"><img src={logo} alt="" /></div>
           <div>
-            <span>蒲公英达人采集系统</span>
+            <span>蒲公英数据快照系统</span>
             <small>服务商数据采集与快照管理</small>
           </div>
         </div>

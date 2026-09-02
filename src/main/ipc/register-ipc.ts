@@ -11,6 +11,7 @@ import type {
 } from '@shared/models'
 import {
   accountCreateSchema,
+  accountRemarkSchema,
   accountUpdateSchema,
   licenseKeySchema,
   passwordLoginSchema,
@@ -105,7 +106,12 @@ export const registerIpc = (
   handle(IPC.accountsDelete, (accountId: string) => guard(() => services.accounts.remove(accountId)))
   handle(IPC.accountsCheck, (accountId: string) => guard(() => services.accounts.check(accountId)))
   handle(IPC.accountsCheckAll, () => guard(() => services.accounts.checkAll()))
-  handle(IPC.accountsOpenLogin, () => guard(() => services.accounts.openWebLogin()))
+  handle(IPC.accountsOpenLogin, (remark: string) => {
+    const parsed = accountRemarkSchema.safeParse(remark)
+    return parsed.success
+      ? guard(() => services.accounts.openWebLogin(parsed.data))
+      : err('INVALID_INPUT', '请输入账号备注')
+  })
   handle(IPC.accountsPasswordLogin, (input: PasswordLoginInput) => {
     const parsed = passwordLoginSchema.safeParse(input)
     return parsed.success
@@ -153,6 +159,7 @@ export const registerIpc = (
   )
 
   handle(IPC.linksImport, () => services.importer.importFirstColumn())
+  handle(IPC.linksHasCookies, async () => ok(Boolean((await services.cookies.get()).trim())))
   handle(IPC.linksOpenLogin, () =>
     guard(() =>
       services.browser.openXhsLogin(() => {

@@ -15,6 +15,8 @@ interface LegacyBloggerApi {
   getFansProfile(userId: string, cookies: string): Promise<LegacyResult>
   getRecentBrands(userId: string, cookies: string): Promise<LegacyResult>
   getCoreDataCpuv(userId: string, cookies: string): Promise<LegacyResult>
+  getNotesRate(userId: string, cookies: string): Promise<LegacyResult>
+  getFansHistory(userId: string, cookies: string): Promise<LegacyResult>
 }
 
 interface LegacyPerformanceApi {
@@ -78,7 +80,9 @@ export class LegacyCollectorAdapter {
       ['fans-summary', bloggerApi.getFansSummary(userId, cookies)],
       ['fans-profile', bloggerApi.getFansProfile(userId, cookies)],
       ['brands', bloggerApi.getRecentBrands(userId, cookies)],
-      ['cpuv', bloggerApi.getCoreDataCpuv(userId, cookies)]
+      ['cpuv', bloggerApi.getCoreDataCpuv(userId, cookies)],
+      ['notes-rate', bloggerApi.getNotesRate(userId, cookies)],
+      ['fans-history', bloggerApi.getFansHistory(userId, cookies)]
     ]
 
     const settled = await Promise.allSettled(tasks.map(([, task]) => task))

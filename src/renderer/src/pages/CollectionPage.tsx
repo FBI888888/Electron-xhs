@@ -26,6 +26,7 @@ export const CollectionPage = () => {
   const [textOpen, setTextOpen] = useState(false)
   const [importText, setImportText] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [includeIncomplete, setIncludeIncomplete] = useState(false)
   const running = ['preparing', 'running', 'paused', 'stopping'].includes(task.status)
   const visibleTargets = task.status === 'idle' ? draftTargets : task.targets
   const selected = visibleTargets.find((target) => target.id === selectedId) ?? null
@@ -76,7 +77,7 @@ export const CollectionPage = () => {
   }
 
   const exportResults = async (): Promise<void> => {
-    const result = await window.desktop.collection.export(false)
+    const result = await window.desktop.collection.export(includeIncomplete)
     if (!result.ok) {
       pushToast({ kind: 'error', title: '导出失败', message: result.error.message })
       return
@@ -109,7 +110,8 @@ export const CollectionPage = () => {
             {task.status === 'paused' && <Button icon={<RotateCcw size={15} />} onClick={() => void action('resume')}>继续</Button>}
             {running && <Button variant="danger" icon={<Square size={15} />} onClick={() => void action('stop')}>停止</Button>}
             {!running && retryTargets.length > 0 && <Button icon={<RotateCcw size={15} />} onClick={() => void startTargets(retryTargets)}>重试未完成 ({retryTargets.length})</Button>}
-            <Button icon={<Download size={15} />} disabled={visibleTargets.every((item) => !item.snapshot)} onClick={() => void exportResults()}>导出结果</Button>
+            <label className="toggle-row toggle-row--compact"><input type="checkbox" checked={includeIncomplete} onChange={(event) => setIncludeIncomplete(event.target.checked)} /><span>含未完成</span></label>
+            <Button icon={<Download size={15} />} disabled={visibleTargets.length === 0 || (!includeIncomplete && visibleTargets.every((item) => !item.snapshot))} onClick={() => void exportResults()}>导出结果</Button>
           </div>
         </section>
 

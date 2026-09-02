@@ -303,6 +303,8 @@ async function getBloggerInfo(userId, cookies) {
                     const noteSign = rawData.noteSign;
                     const noteSignName = noteSign ? noteSign.name || '' : '';
                     
+                    const clothing = rawData.clothingIndustryPrice || {}
+                    const featureTagsStr = Array.isArray(rawData.featureTags) ? rawData.featureTags.filter(Boolean).join(', ') : ''
                     return {
                         success: true,
                         message: '采集成功',
@@ -321,6 +323,32 @@ async function getBloggerInfo(userId, cookies) {
                             contentTags: contentTagsStr,
                             tradeType: rawData.tradeType || '',
                             currentLevel: rawData.currentLevel !== undefined ? rawData.currentLevel : '',
+                            头像: rawData.headPhoto || '',
+                            特色标签: featureTagsStr,
+                            商业笔记数: rawData.businessNoteCount || 0,
+                            下一健康等级: rawData.nextLevel ?? '',
+                            近30天涨粉数: rawData.fans30GrowthNum || 0,
+                            近30天涨粉率: rawData.fans30GrowthRate || 0,
+                            预估阅读UV下限: rawData.forecastReadUvLower || 0,
+                            预估阅读UV上限: rawData.forecastReadUvUpper || 0,
+                            预估人群覆盖率下限: rawData.forecastGroupCoverRateLower || 0,
+                            预估人群覆盖率上限: rawData.forecastGroupCoverRateUpper || 0,
+                            近90天商家实收: rawData.sellerRealIncomeAmt90d || 0,
+                            '48小时邀约回复率': rawData.inviteReply48hNumRatio || 0,
+                            近30天合作曝光中位数: rawData.accumCoopImpMedinNum30d || 0,
+                            '近30天预估CPUV': rawData.estimateCpuv30d || 0,
+                            近30天合作笔记数: rawData.coopNoteNum30d || 0,
+                            近30天直播场次: rawData.kliveCnt30d || 0,
+                            '近90天平均GMV': rawData.avgAgmv90d || 0,
+                            场均观看人数: rawData.avgLiveViewerNum || 0,
+                            服装行业图文报价: clothing.picturePrice || 0,
+                            服装行业视频报价: clothing.videoPrice || 0,
+                            买手权限: rawData.hasBuyerAuth ? '是' : '否',
+                            优质达人: rawData.newHighQuality ? '是' : '否',
+                            图文阅读中位数: rawData.pictureClickMidNum || 0,
+                            图文互动中位数: rawData.pictureInterMidNum || 0,
+                            视频阅读中位数: rawData.videoClickMidNum || 0,
+                            视频互动中位数: rawData.videoInterMidNum || 0
                         }
                     };
                 } else {
@@ -400,6 +428,12 @@ async function fetchDataSummary(userId, business, cookies) {
                                 daily_mAccumImpCompare: formatPeerCompare(rawData.mAccumImpCompare),
                                 daily_mValidRawReadFeedCompare: formatPeerCompare(rawData.mValidRawReadFeedCompare),
                                 daily_mEngagementNumCompare: formatPeerCompare(rawData.mEngagementNumCompare),
+                                博主优势: rawData.kolAdvantage || '',
+                                合作行业名称: Array.isArray(rawData.tradeNames) ? rawData.tradeNames.join('、') : '',
+                                邀约次数: rawData.inviteNum || 0,
+                                图文案例数: rawData.pictureCase || 0,
+                                视频案例数: rawData.videoCase || 0,
+                                是否易合作: rawData.easyConnect ? '是' : '否'
                             }
                         };
                     } else {
@@ -466,6 +500,14 @@ async function getFansSummary(userId, cookies) {
                             '粉丝指标-阅读粉丝占比': rawData.readFansRate ? `${rawData.readFansRate}%` : '',
                             '粉丝指标-互动粉丝占比': rawData.engageFansRate ? `${rawData.engageFansRate}%` : '',
                             '粉丝指标-下单粉丝占比': rawData.payFansUserRate30d ? `${rawData.payFansUserRate30d}%` : '',
+                            '粉丝指标-涨粉优于同行': rawData.fansGrowthBeyondRate ? `${rawData.fansGrowthBeyondRate}%` : '',
+                            '粉丝指标-活跃粉丝数': rawData.activeFansL28 || '',
+                            '粉丝指标-活跃优于同行': rawData.activeFansBeyondRate ? `${rawData.activeFansBeyondRate}%` : '',
+                            '粉丝指标-互动粉丝数': rawData.engageFansL30 || '',
+                            '粉丝指标-互动优于同行': rawData.engageFansBeyondRate ? `${rawData.engageFansBeyondRate}%` : '',
+                            '粉丝指标-阅读粉丝数': rawData.readFansIn30 || '',
+                            '粉丝指标-阅读优于同行': rawData.readFansBeyondRate ? `${rawData.readFansBeyondRate}%` : '',
+                            '粉丝指标-下单粉丝数': rawData.payFansUserNum30d || ''
                         }
                     };
                 } else {
@@ -648,6 +690,83 @@ async function getCoreDataCpuv(userId, cookies) {
     }
 }
 
+function mapNotesRateFields(rawData, prefix = '') {
+    const page = rawData.pagePercentVo || {};
+    const fields = {
+        百赞笔记占比: rawData.hundredLikePercent || '',
+        千赞笔记占比: rawData.thousandLikePercent || '',
+        视频完播率: rawData.videoFullViewRate || '',
+        图文3秒阅读率: rawData.picture3sViewRate || '',
+        点赞中位数: rawData.likeMedian || 0,
+        收藏中位数: rawData.collectMedian || 0,
+        评论中位数: rawData.commentMedian || 0,
+        分享中位数: rawData.shareMedian || 0,
+        '曝光来源-发现页': page.impHomefeedPercent || 0,
+        '曝光来源-搜索': page.impSearchPercent || 0,
+        '曝光来源-关注': page.impFollowPercent || 0
+    };
+    if (!prefix) return fields;
+    return Object.fromEntries(Object.entries(fields).map(([key, value]) => [prefix + key, value]));
+}
+
+async function fetchNotesRateByDate(userId, cookies, dateType) {
+    const url = `https://pgy.xiaohongshu.com/api/solar/kol/data_v3/notes_rate?userId=${userId}&business=0&noteType=3&dateType=${dateType}&advertiseSwitch=1`;
+    const options = getRequestOptions(url, cookies);
+    const response = await makeRequest(options);
+    if (response.statusCode !== 200) return { success: false, message: `HTTP错误: ${response.statusCode}` };
+    const result = JSON.parse(response.data);
+    if (result.success !== true || result.code !== 0) {
+        return { success: false, message: String(result.msg || '笔记数据获取失败') };
+    }
+    return { success: true, data: result.data || {} };
+}
+
+async function getNotesRate(userId, cookies) {
+    return withRetry(async () => {
+        try {
+            const r30 = await fetchNotesRateByDate(userId, cookies, 1);
+            if (!r30.success) return r30;
+            const r90 = await fetchNotesRateByDate(userId, cookies, 2);
+            return {
+                success: true,
+                message: '笔记数据采集成功',
+                data: {
+                    ...mapNotesRateFields(r30.data),
+                    ...(r90.success ? mapNotesRateFields(r90.data, '近90天') : {})
+                }
+            };
+        } catch (e) {
+            return { success: false, message: `请求异常: ${e.message}` };
+        }
+    });
+}
+
+async function getFansHistory(userId, cookies) {
+    return withRetry(async () => {
+        try {
+            const labels = { 1: '近30日', 2: '近60日' };
+            const data = {};
+            for (const dateType of [1, 2]) {
+                const url = `https://pgy.xiaohongshu.com/api/solar/kol/data/${userId}/fans_overall_new_history?dateType=${dateType}&increaseType=1`;
+                const options = getRequestOptions(url, cookies);
+                const response = await makeRequest(options);
+                if (response.statusCode !== 200) return { success: false, message: `HTTP错误: ${response.statusCode}` };
+                const result = JSON.parse(response.data);
+                if (result.success !== true || result.code !== 0) {
+                    return { success: false, message: String(result.msg || '粉丝趋势获取失败') };
+                }
+                const raw = result.data || {};
+                const label = labels[dateType];
+                data[`${label}粉丝增量`] = raw.fansNumInc ?? '';
+                data[`${label}粉丝增量幅度`] = raw.fansNumIncRate != null ? `${(Number(raw.fansNumIncRate) * 100).toFixed(2)}%` : '';
+            }
+            return { success: true, message: '粉丝趋势采集成功', data };
+        } catch (e) {
+            return { success: false, message: `请求异常: ${e.message}` };
+        }
+    });
+}
+
 module.exports = {
     getBloggerInfo,
     getDataSummary,
@@ -655,6 +774,8 @@ module.exports = {
     getFansProfile,
     getRecentBrands,
     getCoreDataCpuv,
+    getNotesRate,
+    getFansHistory,
     getRequestOptions,
     makeRequest,
     getSignHeaders

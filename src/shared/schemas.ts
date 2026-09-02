@@ -16,6 +16,8 @@ export const accountUpdateSchema = z.object({
   clearCredentials: z.boolean().optional()
 })
 
+export const accountRemarkSchema = z.string().trim().min(1).max(80)
+
 export const passwordLoginSchema = z.object({
   remark: z.string().trim().min(1).max(80),
   email: z.string().trim().min(1),

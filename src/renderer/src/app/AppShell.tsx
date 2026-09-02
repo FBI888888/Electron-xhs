@@ -6,20 +6,23 @@ import {
   ListFilter,
   Send,
   Settings,
+  ScrollText,
   ShieldCheck,
   Users
 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAppStore } from '@renderer/store/app-store'
+import logo from '@renderer/assets/logo.png'
 
 const navigation = [
   { to: '/', label: '工作台', icon: Gauge, end: true },
   { to: '/accounts', label: '账号管理', icon: Users },
   { to: '/collection', label: '采集任务', icon: Database },
   { to: '/links', label: '链接转换', icon: Link2 },
-  { to: '/bloggers', label: '达人库', icon: ListFilter },
+  { to: '/bloggers', label: '达人列表', icon: ListFilter },
   { to: '/invites', label: '达人邀约', icon: Send },
-  { to: '/settings', label: '采集设置', icon: Settings }
+  { to: '/settings', label: '采集设置', icon: Settings },
+  { to: '/about', label: '关于', icon: ScrollText }
 ]
 
 export const AppShell = () => {
@@ -30,9 +33,9 @@ export const AppShell = () => {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand__mark">P</div>
+          <div className="brand__mark"><img src={logo} alt="" /></div>
           <div>
-            <strong>蒲公英采集</strong>
+            <strong>蒲公英数据快照</strong>
             <span>数据快照工具</span>
           </div>
         </div>

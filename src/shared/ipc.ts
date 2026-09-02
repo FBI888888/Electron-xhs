@@ -29,6 +29,7 @@ export const IPC = {
   collectionExport: 'collection:export',
   collectionEvent: 'collection:event',
   linksOpenLogin: 'links:open-login',
+  linksHasCookies: 'links:has-cookies',
   linksCookiesCaptured: 'links:cookies-captured',
   linksImport: 'links:import',
   linksResolve: 'links:resolve',

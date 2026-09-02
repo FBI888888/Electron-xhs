@@ -28,7 +28,7 @@ const desktop: DesktopApi = {
     remove: (accountId) => ipcRenderer.invoke(IPC.accountsDelete, accountId),
     check: (accountId) => ipcRenderer.invoke(IPC.accountsCheck, accountId),
     checkAll: () => ipcRenderer.invoke(IPC.accountsCheckAll),
-    openLogin: () => ipcRenderer.invoke(IPC.accountsOpenLogin),
+    openLogin: (remark) => ipcRenderer.invoke(IPC.accountsOpenLogin, remark),
     passwordLogin: (input) => ipcRenderer.invoke(IPC.accountsPasswordLogin, input),
     refresh: (accountId) => ipcRenderer.invoke(IPC.accountsRefresh, accountId),
     cancelLogin: () => ipcRenderer.invoke(IPC.accountsCancelLogin),
@@ -52,6 +52,7 @@ const desktop: DesktopApi = {
   links: {
     importItems: () => ipcRenderer.invoke(IPC.linksImport),
     openLogin: () => ipcRenderer.invoke(IPC.linksOpenLogin),
+    hasCookies: () => ipcRenderer.invoke(IPC.linksHasCookies),
     resolve: (shortUrl) => ipcRenderer.invoke(IPC.linksResolve, shortUrl),
     export: (items) => ipcRenderer.invoke(IPC.linksExport, items),
     onCookiesCaptured: (listener) => on<void>(IPC.linksCookiesCaptured, listener)
